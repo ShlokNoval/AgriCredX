@@ -136,8 +136,8 @@ contract AgriCredX is ERC721URIStorage, Ownable {
         Receivable storage r = receivables[_id];
         require(msg.sender == r.buyer, "Not authorized buyer");
         require(r.status == ReceivableStatus.QUOTATION_SENT, "Must be QUOTATION_SENT first");
-        // In a real implementation with MSTC ERC20, we would transferFrom here.
-        // For the native prototype, we'll just mock the requirement or accept msg.value if we want native escrow.
+        // Lock native funds in Escrow
+        require(msg.value == r.amount, "Must lock exact escrow amount");
 
         r.status = ReceivableStatus.BUYER_ACCEPTED;
         emit StatusUpdated(_id, ReceivableStatus.QUOTATION_SENT, r.status);

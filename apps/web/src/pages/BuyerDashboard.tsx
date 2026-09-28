@@ -104,7 +104,9 @@ export default function BuyerDashboard() {
         throw new Error("Wallet not connected. Please connect your wallet first.");
       }
       const contract = getAgriCredXContract(signer);
-      const tx = await contract.buyerAccept(activeReceivable.id);
+      const tx = await contract.buyerAccept(activeReceivable.id, { 
+        value: ethers.parseEther(activeReceivable.amount.toString()) 
+      });
       setTxHash(tx.hash);
       await tx.wait();
       alert("Transaction confirmed!");
