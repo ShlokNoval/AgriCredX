@@ -361,19 +361,21 @@ function SupplierReceivablesTable() {
       const localSigner = await localProvider.getSigner(0); // Account #0 is Supplier
       const contract = getAgriCredXContract(localSigner);
       
-      // Simulate Grok AI processing delay
-      alert("Simulating Grok AI Document Processing...");
+      // Simulate Grok AI processing delay (No alert)
+      setIsSubmitting(true);
       const { ethers } = await import('ethers');
       const dummyDigest = ethers.keccak256(ethers.toUtf8Bytes("demo_invoice_grn_" + Date.now()));
       
       const tx = await contract.uploadDocumentation(id, dummyDigest);
       await tx.wait();
       
-      alert("Documentation uploaded and hashed successfully. QR Code is now ready.");
+      alert("Documents Verified! Hashed successfully. QR Code is now ready.");
       window.location.reload();
     } catch (err) {
       console.error(err);
-      alert("Failed to upload documentation.");
+      alert("Failed to upload documentation. Ensure the contract ABI is up to date.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -407,10 +409,11 @@ function SupplierReceivablesTable() {
                 {r.on_chain_id && r.status === 'BUYER_ACCEPTED' && (
                   <button 
                     onClick={() => handleUploadDocs(r.on_chain_id)}
-                    className="flex items-center text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded hover:bg-emerald-200 transition-colors border border-emerald-200 font-semibold"
+                    disabled={isSubmitting}
+                    className="flex items-center text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded hover:bg-emerald-200 transition-colors border border-emerald-200 font-semibold disabled:opacity-50"
                     title="Upload documentation and generate Hash Key"
                   >
-                    Upload Docs & Hash
+                    {isSubmitting ? 'Processing via AI...' : 'Upload Docs & Hash'}
                   </button>
                 )}
                 {r.on_chain_id && (r.status === 'DOCUMENTATION_UPLOADED' || r.status === 'PACKED' || r.status === 'IN_TRANSIT') && (

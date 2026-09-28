@@ -38,6 +38,16 @@ async function main() {
   
   fs.writeFileSync(envPath, envContent);
   console.log("Updated frontend config in apps/web/.env.local");
+
+  // Also copy the latest ABI to the frontend
+  const artifactPath = path.join(__dirname, "../artifacts/contracts/AgriCredX.sol/AgriCredX.json");
+  const frontendArtifactPath = path.join(__dirname, "../../apps/web/src/lib/AgriCredX.json");
+  if (fs.existsSync(artifactPath)) {
+    fs.copyFileSync(artifactPath, frontendArtifactPath);
+    console.log("Copied latest contract ABI to frontend!");
+  } else {
+    console.error("WARNING: Could not find compiled artifact to copy to frontend.");
+  }
 }
 
 main().catch((error) => {
