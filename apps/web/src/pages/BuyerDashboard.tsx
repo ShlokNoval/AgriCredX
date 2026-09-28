@@ -454,20 +454,36 @@ export default function BuyerDashboard() {
                     {/* Document Hash Verification */}
                     <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
                       <p className="text-slate-400 text-xs mb-2">Verify a Supplier Document Against On-Chain Hash</p>
-                      <label className={`inline-flex items-center text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1.5 rounded hover:bg-indigo-500/30 transition-colors border border-indigo-500/30 font-semibold cursor-pointer ${verifyingDoc ? 'opacity-50 pointer-events-none' : ''}`}>
-                        <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                        {verifyingDoc ? 'Verifying...' : 'Upload & Verify Document'}
-                        <input 
-                          type="file" 
-                          className="hidden"
-                          accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleVerifyDocument(file);
-                            e.target.value = '';
+                      <div className="flex gap-2">
+                        <label className={`inline-flex items-center text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1.5 rounded hover:bg-indigo-500/30 transition-colors border border-indigo-500/30 font-semibold cursor-pointer ${verifyingDoc ? 'opacity-50 pointer-events-none' : ''}`}>
+                          <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                          {verifyingDoc ? 'Verifying...' : 'Upload & Verify Document'}
+                          <input 
+                            type="file" 
+                            className="hidden"
+                            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleVerifyDocument(file);
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
+                        
+                        <button 
+                          onClick={() => {
+                            const baseUrl = window.location.origin;
+                            const url = `${baseUrl}/certificate/${activeReceivable.id}`;
+                            window.open(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`, '_blank', 'width=400,height=400');
+                            window.open(`/certificate/${activeReceivable.id}`, '_blank');
                           }}
-                        />
-                      </label>
+                          className="inline-flex items-center text-xs bg-emerald-500/20 text-emerald-300 px-3 py-1.5 rounded hover:bg-emerald-500/30 transition-colors border border-emerald-500/30 font-semibold"
+                          title="Generate QR code linking to the public NFT certificate"
+                        >
+                          <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                          View NFT Cert (QR)
+                        </button>
+                      </div>
                     </div>
                     {/* Verify Result inline */}
                     {verifyResult && (

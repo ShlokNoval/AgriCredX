@@ -10,6 +10,8 @@ import Auth from './pages/Auth';
 import AdminDashboard from './pages/AdminDashboard';
 import DeliveryScanner from './pages/DeliveryScanner';
 
+import CertificateViewer from './pages/CertificateViewer';
+
 export default function App() {
   return (
     <WalletProvider>
@@ -23,6 +25,7 @@ export default function App() {
             <Route path="buyer" element={<BuyerDashboard />} />
             <Route path="tamper" element={<TamperDemo />} />
             <Route path="delivery/:id" element={<DeliveryScanner />} />
+            <Route path="certificate/:id" element={<CertificateViewer />} />
           </Route>
         </Routes>
       </BrowserRouter>
