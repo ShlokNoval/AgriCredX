@@ -169,13 +169,30 @@ export default function BuyerDashboard() {
     }
   };
 
-  const handleVerifyDocument = async (file: File) => {
+  const handleVerifyDocument = async (files: FileList) => {
     if (!activeReceivable || !activeReceivable.attestationDigest) return;
+    if (files.length !== 3) {
+      alert("Please select exactly 3 documents for verification.");
+      return;
+    }
     setVerifyingDoc(true);
     try {
-      const fileBuffer = await file.arrayBuffer();
-      const fileBytes = new Uint8Array(fileBuffer);
-      const computedHash = ethers.keccak256(fileBytes);
+      const fileArray = Array.from(files).sort((a, b) => a.name.localeCompare(b.name));
+      let totalLength = 0;
+      const buffers = await Promise.all(fileArray.map(async f => {
+        const buf = new Uint8Array(await f.arrayBuffer());
+        totalLength += buf.length;
+        return buf;
+      }));
+
+      const allBytes = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const buf of buffers) {
+        allBytes.set(buf, offset);
+        offset += buf.length;
+      }
+
+      const computedHash = ethers.keccak256(allBytes);
 
       const chainHash = activeReceivable.attestationDigest;
       const match = computedHash.toLowerCase() === chainHash.toLowerCase();

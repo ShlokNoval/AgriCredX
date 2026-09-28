@@ -10,7 +10,8 @@ export default function DeliveryScanner() {
   const hashParam = searchParams.get('hash');
   
   const [pin, setPin] = useState('');
-  const [logisticsPhase, setLogisticsPhase] = useState('1'); // Default to PACKED
+  const [logisticsPhase, setLogisticsPhase] = useState('3'); // Default to PACKED
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
   const [error, setError] = useState('');
@@ -32,7 +33,7 @@ export default function DeliveryScanner() {
       const contract = getAgriCredXContract(localSigner);
       
       // Call the updateLogisticsStatus function on the blockchain
-      // 1 = PACKED, 2 = IN_TRANSIT, 3 = DELIVERED
+      // 3 = PACKED, 4 = IN_TRANSIT, 5 = DELIVERED
       const tx = await contract.updateLogisticsStatus(id, Number(logisticsPhase));
       await tx.wait();
       setStatus('SUCCESS');
@@ -93,9 +94,9 @@ export default function DeliveryScanner() {
                     onChange={(e) => setLogisticsPhase(e.target.value)}
                     className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-blue-500 font-medium"
                   >
-                    <option value="1">📦 Packed & Ready</option>
-                    <option value="2">🚚 In Transit</option>
-                    <option value="3">✅ Delivered to Buyer</option>
+                    <option value="3">📦 Packed & Ready</option>
+                    <option value="4">🚚 In Transit</option>
+                    <option value="5">✅ Delivered to Buyer</option>
                   </select>
                 </div>
                 <div>
