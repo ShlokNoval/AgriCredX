@@ -53,9 +53,26 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         const accounts = await browserProvider.send("eth_requestAccounts", []);
         if (accounts.length > 0) {
           const activeSigner = await browserProvider.getSigner();
-          setAddress(accounts[0]);
+          const address = accounts[0];
+          setAddress(address);
           setProvider(browserProvider);
           setSigner(activeSigner);
+          
+          // AUTO-FAUCET FOR LOCAL DEMO
+          try {
+             const network = await browserProvider.getNetwork();
+             if (network.chainId === 31337n) { // Hardhat
+               const localRpc = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
+               const richSigner = await localRpc.getSigner(0);
+               const bal = await localRpc.getBalance(address);
+               if (bal < ethers.parseEther("10")) {
+                 console.log("Auto-funding wallet from local faucet...");
+                 await richSigner.sendTransaction({ to: address, value: ethers.parseEther("100") });
+               }
+             }
+          } catch (e) {
+             console.log("Auto-faucet skipped", e);
+          }
           return;
         }
       } 

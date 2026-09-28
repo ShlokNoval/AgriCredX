@@ -5,7 +5,10 @@ import Layout from './components/Layout';
 import Home from './pages/Home';
 import SupplierDashboard from './pages/SupplierDashboard';
 import BuyerDashboard from './pages/BuyerDashboard';
-import FinancierDashboard from './pages/FinancierDashboard';
+import TamperDemo from './pages/TamperDemo';
+import Auth from './pages/Auth';
+import AdminDashboard from './pages/AdminDashboard';
+import DeliveryScanner from './pages/DeliveryScanner';
 
 export default function App() {
   return (
@@ -14,9 +17,12 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
+            <Route path="auth" element={<Auth />} />
+            <Route path="admin" element={<AdminDashboard />} />
             <Route path="supplier" element={<SupplierDashboard />} />
             <Route path="buyer" element={<BuyerDashboard />} />
-            <Route path="financier" element={<FinancierDashboard />} />
+            <Route path="tamper" element={<TamperDemo />} />
+            <Route path="delivery/:id" element={<DeliveryScanner />} />
           </Route>
         </Routes>
       </BrowserRouter>

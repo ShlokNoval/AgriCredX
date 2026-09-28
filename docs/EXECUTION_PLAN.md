@@ -21,8 +21,9 @@
 ### Phase 3: Integration (Both)
 - Wire frontend to Supabase API and AI service.
 - Integrate contract calls via `chain-client`.
+- **(Judge Update):** Ensure NFT Certificate generation, Native MST Escrow, and physical Delivery are integrated on-chain.
 - Verify the exact lifecycle:
-  `CREATED → VERIFIED → BUYER_ACCEPTED → ATTESTED → FINANCEABLE → FUNDED → OUTSTANDING → REPAID → CLOSED`
+  `CREATED → DELIVERED → VERIFIED → BUYER_ACCEPTED → ATTESTED → FINANCEABLE → FUNDED → OUTSTANDING → REPAID → CLOSED`
 
 ### Phase 4: Financing & UI Polish (Both)
 - Implement bidding/funding UI.

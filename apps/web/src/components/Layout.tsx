@@ -1,6 +1,6 @@
 import React from 'react';
 import { useWallet } from '../contexts/WalletContext';
-import { LogOut, Wallet } from 'lucide-react';
+import { LogOut, Wallet, ShieldAlert } from 'lucide-react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 
 export default function Layout() {
@@ -29,7 +29,12 @@ export default function Layout() {
                 </span>
               </Link>
               
-              {/* Optional: Add navigation links based on role here later */}
+              <div className="hidden md:flex items-center gap-6 ml-4">
+                <Link to="/tamper" className="text-sm font-medium text-slate-600 hover:text-red-600 transition-colors flex items-center gap-1">
+                  <ShieldAlert size={16} />
+                  Judge's Tamper Demo
+                </Link>
+              </div>
             </div>
 
             <div className="flex items-center gap-4">
