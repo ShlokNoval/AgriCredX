@@ -100,10 +100,10 @@ export default function BuyerDashboard() {
     setIsSubmitting(true);
     setTxHash(null);
     try {
-      // Use local Hardhat signer for write operations
-      const localProvider = getReadOnlyProvider();
-      const localSigner = await localProvider.getSigner(1); // Account #1 = Buyer
-      const contract = getAgriCredXContract(localSigner);
+      if (!signer) {
+        throw new Error("Wallet not connected. Please connect your wallet first.");
+      }
+      const contract = getAgriCredXContract(signer);
       const tx = await contract.buyerAccept(activeReceivable.id);
       setTxHash(tx.hash);
       await tx.wait();
@@ -412,7 +412,7 @@ export default function BuyerDashboard() {
                   const existing = JSON.parse(localStorage.getItem('agricredx_buyer_requests') || '[]');
                   existing.push({
                     id: 'REQ-' + Math.floor(Math.random() * 100000),
-                    buyer: address || '0xbF6A6E0F... (Test Buyer)',
+                    buyer: address || 'Anonymous Buyer',
                     buyerName: rfpBuyerName || 'Global Agri Corp',
                     commodity: rfpCommodity,
                     quantity: rfpQuantity,

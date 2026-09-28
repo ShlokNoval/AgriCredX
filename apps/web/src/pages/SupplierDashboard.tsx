@@ -5,7 +5,7 @@ import { ethers } from 'ethers';
 
 export default function SupplierDashboard() {
   const { isConnected, signer, address } = useWallet();
-  const [buyerAddress, setBuyerAddress] = useState('0x70997970C51812dc3A010C7d01b50e0d17dc79C8'); // default hardhat acct 2
+  const [buyerAddress, setBuyerAddress] = useState('');
   const [amount, setAmount] = useState('1');
   const [invoiceId, setInvoiceId] = useState('INV-2026-09124');
   const [dueDateDays, setDueDateDays] = useState('60');
@@ -55,17 +55,17 @@ export default function SupplierDashboard() {
     setIsSubmitting(true);
     setTxHash(null);
     try {
-      // Use local Hardhat signer directly — BridgeKey routes to MST Testnet where contract doesn't exist
-      const localProvider = getReadOnlyProvider();
-      const localSigner = await localProvider.getSigner(0); // Hardhat Account #0 (has funds)
-      const contract = getAgriCredXContract(localSigner);
+      if (!signer) {
+        throw new Error("Wallet not connected. Please connect your wallet first.");
+      }
+      const contract = getAgriCredXContract(signer);
       
       const parsedAmount = ethers.parseEther(amount);
       const dueDateTimestamp = Math.floor(Date.now() / 1000) + (parseInt(dueDateDays) * 24 * 60 * 60);
       
       console.log("Creating receivable with invoice ID:", invoiceId);
-      const mockTokenUri = "ipfs://QmMockDocumentHashForNFTCertificate";
-      const tx = await contract.createReceivable(invoiceId, buyerAddress, parsedAmount, dueDateTimestamp, mockTokenUri);
+      const invoiceDocUri = "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG";
+      const tx = await contract.createReceivable(invoiceId, buyerAddress, parsedAmount, dueDateTimestamp, invoiceDocUri);
       setTxHash(tx.hash);
       
       const receipt = await tx.wait(); // Wait for confirmation
@@ -356,10 +356,10 @@ function SupplierReceivablesTable() {
 
   const handleUploadDocs = async (id: string) => {
     try {
-      const { getReadOnlyProvider, getAgriCredXContract } = await import('../lib/contract');
-      const localProvider = getReadOnlyProvider();
-      const localSigner = await localProvider.getSigner(0); // Account #0 is Supplier
-      const contract = getAgriCredXContract(localSigner);
+      if (!signer) {
+        throw new Error("Wallet not connected.");
+      }
+      const contract = getAgriCredXContract(signer);
       
       // Simulate Grok AI processing delay (No alert)
       setIsSubmitting(true);
