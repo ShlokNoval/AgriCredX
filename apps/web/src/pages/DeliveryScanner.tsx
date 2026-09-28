@@ -11,6 +11,7 @@ export default function DeliveryScanner() {
   
   const [pin, setPin] = useState('');
   const [logisticsPhase, setLogisticsPhase] = useState('3'); // Default to PACKED
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
@@ -28,14 +29,26 @@ export default function DeliveryScanner() {
       const { getReadOnlyProvider, getAgriCredXContract } = await import('../lib/contract');
       const provider = getReadOnlyProvider();
       
-      // We use the first Hardhat account to execute this proxy transaction
-      const localSigner = await provider.getSigner(0);
+      // HACKATHON DEMO ONLY: We hardcode a funded testnet private key here so the 
+      // warehouse worker's phone can submit the transaction without needing a wallet extension.
+      // IN PRODUCTION: This should use a backend relayer or account abstraction.
+      const DEMO_RELAYER_KEY = "0x4f8b46e3952872a6bddb6ff7674318ce6e6c0df141e744e2265535fabe02dc20";
+      const localSigner = new ethers.Wallet(DEMO_RELAYER_KEY, provider);
+      
       const contract = getAgriCredXContract(localSigner);
       
       // Call the updateLogisticsStatus function on the blockchain
       // 3 = PACKED, 4 = IN_TRANSIT, 5 = DELIVERED
       const tx = await contract.updateLogisticsStatus(id, Number(logisticsPhase));
       await tx.wait();
+
+      if (photoDataUrl) {
+        localStorage.setItem(`deliveryProof_${id}_${logisticsPhase}`, photoDataUrl);
+      }
+      if (Number(logisticsPhase) === 5) {
+        localStorage.setItem(`grn_generated_${id}`, new Date().toISOString());
+      }
+
       setStatus('SUCCESS');
     } catch (err: any) {
       console.error(err);
@@ -109,6 +122,45 @@ export default function DeliveryScanner() {
                     onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
                     className="w-full text-center text-2xl tracking-widest py-3 px-4 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-blue-500 transition-colors"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Proof Photo (Optional)</label>
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1 text-center py-2 px-4 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer text-sm font-medium text-slate-600 hover:bg-slate-50">
+                      {photoDataUrl ? 'Photo Attached ✅' : '📸 Take Photo'}
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        capture="environment" 
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const img = new Image();
+                            img.onload = () => {
+                              const MAX = 800;
+                              let w = img.width, h = img.height;
+                              if (w > h) { if (w > MAX) { h *= MAX/w; w = MAX; } }
+                              else { if (h > MAX) { w *= MAX/h; h = MAX; } }
+                              const canvas = document.createElement('canvas');
+                              canvas.width = w; canvas.height = h;
+                              canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
+                              setPhotoDataUrl(canvas.toDataURL('image/jpeg', 0.7));
+                            };
+                            if (event.target?.result) img.src = event.target.result as string;
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                      />
+                    </label>
+                    {photoDataUrl && (
+                      <button onClick={() => setPhotoDataUrl(null)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
               

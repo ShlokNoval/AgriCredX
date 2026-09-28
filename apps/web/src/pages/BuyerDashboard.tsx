@@ -172,7 +172,7 @@ export default function BuyerDashboard() {
   const handleVerifyDocument = async (files: FileList) => {
     if (!activeReceivable || !activeReceivable.attestationDigest) return;
     if (files.length !== 3) {
-      alert("Please select exactly 3 documents for verification.");
+      alert("Please select exactly 3 documents for verification: Invoice, PO, and Quality Assurance Certificate.");
       return;
     }
     setVerifyingDoc(true);
@@ -460,7 +460,7 @@ export default function BuyerDashboard() {
                     <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 flex justify-between items-center">
                       <div>
                         <p className="text-slate-400 text-xs mb-1">AI Pipeline Verification</p>
-                        <p className="text-slate-300 text-xs font-mono">Invoice, PO, GRN Matches Validated</p>
+                        <p className="text-slate-300 text-xs font-mono">Invoice, PO, QA Certificate Matches Validated</p>
                       </div>
                       <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                     </div>

@@ -400,7 +400,7 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
         return;
       }
       if (files.length !== 3) {
-        alert("Please select exactly 3 documents: Invoice, PO, and GRN.");
+        alert("Please select exactly 3 documents: Invoice, PO, and Quality Assurance Certificate.");
         return;
       }
       setIsUploading(id);
@@ -522,7 +522,7 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
                       {r.on_chain_id && r.status === 'BUYER_ACCEPTED' && (
                         <label 
                           className={`flex items-center text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded hover:bg-emerald-200 transition-colors border border-emerald-200 font-semibold cursor-pointer ${isUploading === r.on_chain_id ? 'opacity-50 pointer-events-none' : ''}`}
-                          title="Select a document (Invoice/GRN PDF) to hash and anchor on-chain"
+                          title="Select a document (Invoice/PO/QA Cert) to hash and anchor on-chain"
                         >
                           <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                           {isUploading === r.on_chain_id ? 'Hashing & Anchoring...' : 'Upload Docs & Hash'}
@@ -596,6 +596,128 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
                         </button>
                       )}
                     </div>
+
+                    {/* Logistics Proofs and GRN */}
+                    {r.on_chain_id && r.statusNum >= 3 && (
+                      <div className="mt-3 flex flex-col gap-2 border-t border-slate-200 pt-3">
+                        <button 
+                          onClick={() => {
+                            // Check for proofs in localStorage
+                            const phases = [3, 4, 5];
+                            const proofs = phases.map(p => ({
+                              phase: p,
+                              data: localStorage.getItem(`deliveryProof_${r.on_chain_id}_${p}`)
+                            })).filter(p => p.data);
+
+                            if (proofs.length === 0) {
+                              alert("No photographic proof was uploaded during logistics scanning.");
+                              return;
+                            }
+
+                            // Open a new window with a simple HTML gallery
+                            const win = window.open("", "_blank");
+                            if (win) {
+                              win.document.write(`
+                                <html>
+                                <head>
+                                  <title>Delivery Proof - ${r.invoice_id}</title>
+                                  <style>
+                                    body { font-family: sans-serif; padding: 20px; background: #f8fafc; }
+                                    .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; text-align: center; }
+                                    img { max-width: 100%; max-height: 70vh; border-radius: 4px; border: 1px solid #e2e8f0; }
+                                    h2 { color: #0f172a; margin-top: 0; }
+                                    .phase-3 { color: #b45309; }
+                                    .phase-4 { color: #4338ca; }
+                                    .phase-5 { color: #047857; }
+                                  </style>
+                                </head>
+                                <body>
+                                  <h1>Logistics Proof: ${r.invoice_id}</h1>
+                                  ${proofs.map(p => `
+                                    <div class="card">
+                                      <h2 class="phase-${p.phase}">
+                                        ${p.phase === 3 ? '📦 Packed & Ready' : p.phase === 4 ? '🚚 In Transit' : '✅ Delivered to Buyer'}
+                                      </h2>
+                                      <img src="${p.data}" alt="Proof Photo" />
+                                    </div>
+                                  `).join('')}
+                                </body>
+                                </html>
+                              `);
+                              win.document.close();
+                            }
+                          }}
+                          className="flex items-center text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded hover:bg-blue-100 transition-colors border border-blue-200 font-semibold"
+                        >
+                          <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                          View Delivery Proofs
+                        </button>
+
+                        {r.statusNum >= 5 && localStorage.getItem(`grn_generated_${r.on_chain_id}`) && (
+                          <button 
+                            onClick={() => {
+                              const win = window.open("", "_blank");
+                              const timestamp = localStorage.getItem(`grn_generated_${r.on_chain_id}`);
+                              const dateStr = new Date(timestamp as string).toLocaleString();
+                              if (win) {
+                                win.document.write(`
+                                  <html>
+                                  <head>
+                                    <title>Goods Received Note (GRN) - ${r.invoice_id}</title>
+                                    <style>
+                                      body { font-family: 'Courier New', Courier, monospace; padding: 40px; background: #fff; color: #000; }
+                                      .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; }
+                                      .title { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+                                      .meta { margin-bottom: 30px; }
+                                      table { w-full; border-collapse: collapse; margin-top: 20px; width: 100%; }
+                                      th, td { border: 1px solid #000; padding: 10px; text-align: left; }
+                                      .seal { margin-top: 50px; text-align: right; font-weight: bold; color: #047857; }
+                                    </style>
+                                  </head>
+                                  <body>
+                                    <div class="header">
+                                      <div class="title">GOODS RECEIVED NOTE (GRN)</div>
+                                      <div>AUTO-GENERATED ON-CHAIN RECEIPT</div>
+                                    </div>
+                                    <div class="meta">
+                                      <p><strong>Invoice ID:</strong> ${r.invoice_id}</p>
+                                      <p><strong>On-Chain Asset ID:</strong> #${r.on_chain_id}</p>
+                                      <p><strong>Date Received:</strong> ${dateStr}</p>
+                                      <p><strong>Status:</strong> VERIFIED & DELIVERED</p>
+                                    </div>
+                                    <table>
+                                      <tr>
+                                        <th>Description</th>
+                                        <th>Amount Settled</th>
+                                        <th>Cryptographic Integrity</th>
+                                      </tr>
+                                      <tr>
+                                        <td>Goods delivered matching ${r.invoice_id} requirements</td>
+                                        <td>${r.amount} ${r.currency}</td>
+                                        <td style="word-break: break-all;">${r.attestation_digest}</td>
+                                      </tr>
+                                    </table>
+                                    <div class="seal">
+                                      ✓ ESCROW RELEASED<br/>
+                                      AgriCredX Verified
+                                    </div>
+                                    <div style="margin-top: 40px; text-align: center;">
+                                      <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer;">Print GRN</button>
+                                    </div>
+                                  </body>
+                                  </html>
+                                `);
+                                win.document.close();
+                              }
+                            }}
+                            className="flex items-center justify-center text-xs bg-slate-900 text-white px-3 py-1.5 rounded hover:bg-slate-800 transition-colors font-bold shadow-md"
+                          >
+                            <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                            Download GRN
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </td>
                 </tr>
               );
