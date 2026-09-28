@@ -81,6 +81,7 @@ export default function BuyerDashboard() {
         amount: ethers.formatEther(data.amount),
         buyer: data.buyer,
         status: Number(data.status),
+        attestationDigest: data.attestationDigest
       });
       setTxHash(null);
     } catch (err: any) {
@@ -159,10 +160,15 @@ export default function BuyerDashboard() {
               <p className="text-3xl font-extrabold text-slate-900 mt-2">{openRequestsCount}</p>
               <p className="text-xs text-emerald-600 mt-1">Click to view your posted RFPs</p>
             </div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <div 
+              className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 cursor-pointer hover:border-emerald-300 transition-colors"
+              onClick={() => {
+                document.getElementById('receivables-table')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+            >
               <h3 className="text-sm font-semibold text-slate-500 uppercase">Pending Quotations</h3>
               <p className="text-3xl font-extrabold text-amber-600 mt-2">{pendingReviewCount}</p>
-              <p className="text-xs text-amber-600 mt-1">Quotations awaiting your acceptance</p>
+              <p className="text-xs text-amber-600 mt-1">Click to view incoming quotations</p>
             </div>
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
               <h3 className="text-sm font-semibold text-slate-500 uppercase">Total Settled (Escrow)</h3>
@@ -282,6 +288,7 @@ export default function BuyerDashboard() {
                 </div>
 
                 {/* Cryptographic Attestation Widget */}
+                {activeReceivable.status >= 2 && (
                 <div className="bg-slate-900 rounded-xl p-5 border border-slate-800 shadow-inner">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-slate-200 font-semibold text-sm flex items-center">
@@ -300,22 +307,23 @@ export default function BuyerDashboard() {
                     </div>
                     <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
                       <p className="text-slate-400 text-xs mb-1">On-Chain Document Hash (SHA-256)</p>
-                      <p className="text-emerald-400 text-xs font-mono truncate">0x4a5b6c7d8e9f0123456789abcdef0123456789abcdef0123456789abcdef0123</p>
+                      <p className="text-emerald-400 text-xs font-mono truncate">{activeReceivable.attestationDigest}</p>
                     </div>
                   </div>
                 </div>
+                )}
 
                 <div className="flex gap-4">
-                  {activeReceivable.status === 1 /* VERIFIED */ && (
+                  {activeReceivable.status === 0 /* QUOTATION_SENT */ && (
                     <button 
                       onClick={() => handleAction('ACCEPT')}
                       disabled={isSubmitting}
                       className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-600/20 disabled:opacity-50 transition-all"
                     >
-                      {isSubmitting ? 'Processing...' : 'Release Escrow & Accept'}
+                      {isSubmitting ? 'Processing...' : 'Accept Quotation & Lock Escrow'}
                     </button>
                   )}
-                  {activeReceivable.status !== 1 && (
+                  {activeReceivable.status !== 0 && (
                     <div className="w-full text-center p-3 text-sm text-slate-500 bg-slate-50 rounded-lg">
                       No buyer actions available for status: {statusMap[activeReceivable.status]}
                     </div>
@@ -335,7 +343,7 @@ export default function BuyerDashboard() {
       )}
       
       {isConnected && (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mt-8">
+        <div id="receivables-table" className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mt-8">
           <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
             <h2 className="text-lg font-semibold text-slate-800">Your Actionable Receivables</h2>
             <button onClick={() => window.location.reload()} className="text-sm text-emerald-600 hover:text-emerald-800 flex items-center">
@@ -444,7 +452,7 @@ function BuyerReceivablesTable({ onSelect }: { onSelect: (id: string) => void })
             amount: ethers.formatEther(r.amount),
             currency: 'MSTC',
             due_date: new Date(Number(r.dueDate) * 1000).toISOString(),
-            status: Number(r.status) === 0 ? 'CREATED' : Number(r.status) === 1 ? 'DELIVERED' : Number(r.status) === 2 ? 'VERIFIED' : Number(r.status) === 3 ? 'BUYER_ACCEPTED' : 'UNKNOWN',
+            status: Number(r.status) === 0 ? 'QUOTATION_SENT' : Number(r.status) === 1 ? 'BUYER_ACCEPTED' : Number(r.status) === 2 ? 'DOCUMENTATION_UPLOADED' : Number(r.status) === 3 ? 'PACKED' : Number(r.status) === 4 ? 'IN_TRANSIT' : Number(r.status) === 5 ? 'DELIVERED' : 'UNKNOWN',
             on_chain_id: i.toString(),
           });
         }
@@ -487,7 +495,7 @@ function BuyerReceivablesTable({ onSelect }: { onSelect: (id: string) => void })
                   disabled={!r.on_chain_id}
                   className="text-xs bg-slate-900 text-white px-3 py-1 rounded hover:bg-slate-800 disabled:opacity-50"
                 >
-                  Load ID #{r.on_chain_id || '?'}
+                  {r.status === 'QUOTATION_SENT' ? 'View Quotation' : `Load ID #${r.on_chain_id || '?'}`}
                 </button>
               </td>
             </tr>
