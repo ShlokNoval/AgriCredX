@@ -14,7 +14,12 @@ const LOCAL_RPC = import.meta.env.VITE_LOCAL_RPC_URL || '/rpc';
  * Returns a read-only provider connected directly to the local Hardhat node.
  * This avoids BridgeKey routing reads to MST Testnet where the contract doesn't exist.
  */
-export function getReadOnlyProvider(): ethers.JsonRpcProvider {
+export function getReadOnlyProvider(): ethers.Provider {
+  // If a Web3 wallet is available, use it for reads so we are on the same network as writes (e.g. MST Testnet)
+  if (typeof window !== 'undefined' && (window as any).ethereum) {
+    return new ethers.BrowserProvider((window as any).ethereum);
+  }
+  
   let rpcUrl = LOCAL_RPC;
   // ethers.js requires an absolute URL, so if it's relative like '/rpc', prepend the origin
   if (rpcUrl.startsWith('/')) {
