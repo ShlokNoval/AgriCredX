@@ -1,32 +1,75 @@
 # AgriCredX 🌾
 
-**Institutional Trust Operating System for Agricultural Trade Finance**
+**On-chain Trade Finance & Supply Chain Platform — MST Buildathon 2026**  
+**Team InnoVision** | Branch: `shlok-noval`
 
-Built for the MST Blockchain Buildathon 2026 by Team InnoVision.
+---
 
-AgriCredX solves the $1.5T trade finance gap by bridging off-chain documentation with on-chain trust. It allows agricultural suppliers to convert their physical trade documents (Invoices, Purchase Orders, Goods Receipt Notes, Quality Certificates) into verifiable, financeable assets.
+## What is AgriCredX?
 
-## Overview
+AgriCredX converts fragmented agricultural trade into a trustless, cryptographically-verified pipeline. Every receivable is minted as an **ERC-721 NFT certificate**. Escrow is enforced natively in the smart contract. The full workflow — from buyer procurement to payment release — happens on-chain with no intermediary.
 
-1. **AI Document Verification:** Extracts and cross-validates data from unstructured PDFs (Invoice vs PO vs GRN).
-2. **MST Blockchain Attestation:** Anchors a tamper-evident digest of the verified state.
-3. **BridgeKey Wallet Acceptance:** Cryptographic authorization by the buyer.
-4. **Institutional Financing:** Allows financiers to fund fully verified and attested receivables.
+---
 
-## Repository Structure
+## The Workflow
 
-- `apps/web/` - React frontend
-- `services/ai/` - Python FastAPI AI service
-- `contracts/` - Solidity smart contracts & Hardhat
-- `supabase/` - Database migrations, seed data, edge functions
-- `packages/` - Shared TypeScript libraries (`shared-types`, `chain-client`, `document-schemas`)
-- `docs/` - Architecture, execution plans, runbooks
-
-## Quick Start (Bootstrap Phase)
-
-```bash
-npm install
-npm run build
+```
+Buyer Posts RFP
+    → Supplier Sends Quotation (QUOTATION_SENT)
+    → Buyer Accepts & Locks Escrow (BUYER_ACCEPTED)
+    → Supplier Uploads Docs, AI Hashes (DOCUMENTATION_UPLOADED)
+    → Logistics: PACKED → IN_TRANSIT → DELIVERED
+    → Escrow auto-released to Supplier on DELIVERED
 ```
 
-See [docs/EXECUTION_PLAN.md](./docs/EXECUTION_PLAN.md) for development workflows.
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18 + Vite + TypeScript + Tailwind CSS |
+| Smart Contract | Solidity (ERC721URIStorage) on Hardhat EVM |
+| Wallet | BridgeKey (MetaMask-compatible Web3 wallet) |
+| AI Engine | Grok AI (xAI) for invoice extraction & verification |
+| Backend DB | Supabase (PostgreSQL + Row Level Security) |
+| Logistics | QR Code via Ngrok tunnel for mobile delivery confirmation |
+| Token Standard | ERC-721 NFT Certificate per receivable |
+
+---
+
+## Quick Start
+
+```powershell
+# 1. Start local blockchain
+cd contracts && npx hardhat node
+
+# 2. Deploy smart contract
+cd contracts && npx hardhat run scripts/deploy.ts --network localhost
+
+# 3. Start frontend
+npm run dev --workspace=apps/web
+
+# 4. Start Ngrok tunnel (for mobile QR scanner)
+ngrok http 5173
+```
+
+**Environment Variables** (`apps/web/.env.local`):
+```
+VITE_AGRICREDX_CONTRACT_ADDRESS=<from deploy output>
+VITE_SUPABASE_URL=https://nheljbbndmaplgcncfqi.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_AjuyQR9okk0p17HbIHe_1A_Q4fVqwUO
+```
+
+---
+
+## For a New AI Agent Session
+
+Read `docs/AGENT_CONTEXT.md` first. It contains the full project state, all known issues, the exact smart contract function signatures, frontend architecture, and wallet configuration. Do NOT start coding without reading it.
+
+---
+
+## GitHub
+
+- **Repo:** https://github.com/ShlokNoval/Team_InnoVision
+- **Branch:** `shlok-noval`
