@@ -24,3 +24,7 @@ export function getClient(rpcUrl?: string, privateKey?: string): Client {
 
 // Re-export core MST SDK utilities for convenience
 export { Constants } from '@mstblockchain/mst-sdk';
+
+import AgriCredXArtifact from './AgriCredX.json';
+export const AgriCredXABI = AgriCredXArtifact.abi;
+export const AGRICREDX_TESTNET_ADDRESS = "0x1d1b3c2ad7eD58a15547b60c279Fad00954d4e6C";
