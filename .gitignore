@@ -1,0 +1,74 @@
+# === Dependencies ===
+node_modules/
+.pnp
+.pnp.js
+
+# === Build outputs ===
+dist/
+build/
+out/
+.next/
+*.tsbuildinfo
+
+# === Environment & Secrets ===
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# === Private keys / wallets ===
+*.pem
+*.key
+keystore/
+secrets/
+
+# === Hardhat / Solidity ===
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
+deployments/
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# === Supabase ===
+supabase/.temp/
+
+# === Logs ===
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === Testing ===
+coverage/
+.nyc_output/
+
+# === Temp files from SDK inspection ===
+_mst_sdk_tmp/
+*.tgz
+
+# === Source document text extracts (generated) ===
+prd_srs_v3.txt
+buildathon_guide.txt

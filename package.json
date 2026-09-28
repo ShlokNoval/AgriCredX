@@ -1,0 +1,35 @@
+{
+  "name": "agricredx",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Blockchain-backed attested receivables financing for agricultural supply chains",
+  "workspaces": [
+    "packages/shared-types",
+    "packages/chain-client",
+    "packages/document-schemas",
+    "apps/web",
+    "contracts"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:contracts": "npm run compile --workspace=contracts",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:types": "npm run build --workspace=packages/shared-types",
+    "build:schemas": "npm run build --workspace=packages/document-schemas",
+    "build:chain": "npm run build --workspace=packages/chain-client",
+    "build:contracts": "npm run compile --workspace=contracts",
+    "build": "npm run build:types && npm run build:schemas && npm run build:chain && npm run build:web",
+    "test:contracts": "npm run test --workspace=contracts",
+    "test:ai": "cd services/ai && python -m pytest tests/ -v",
+    "typecheck": "npm run typecheck --workspace=packages/shared-types --workspace=packages/document-schemas --workspace=packages/chain-client --workspace=apps/web",
+    "clean": "rimraf node_modules packages/*/dist apps/*/dist contracts/artifacts contracts/cache"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ShlokNoval/Team_InnoVision.git"
+  },
+  "license": "MIT"
+}

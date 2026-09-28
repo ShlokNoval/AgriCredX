@@ -1,0 +1,23 @@
+# A string used to distinguish different Supabase projects on the same host. Defaults to the
+# working directory name when running `supabase init`.
+project_id = "agricredx"
+
+[api]
+port = 54321
+# Extra schemas to add to the search_path of every request
+extra_search_path = ["public", "extensions"]
+# The maximum number of rows returns from a view, table, or stored procedure. Limits payload size
+# for accidental or malicious requests.
+max_rows = 1000
+
+[db]
+port = 54322
+# The database major version to use. This allows you to set up a local database that is more
+# closely aligned with your remote database's version.
+major_version = 15
+
+[studio]
+port = 54323
+
+[inbucket]
+port = 54324

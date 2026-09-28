@@ -1,0 +1,24 @@
+{
+  "scenario": "Successful Financing",
+  "receivable": {
+    "invoiceId": "INV-2026-09124",
+    "commodity": "Basmati Rice",
+    "amount": 850000,
+    "currency": "INR",
+    "paymentTermDays": 60,
+    "requestedFinancing": 820000
+  },
+  "participants": {
+    "buyer": "ABC Foods",
+    "supplier": "Demo Basmati Exporter",
+    "financiers": [
+      "Financier A",
+      "Financier B",
+      "Financier C"
+    ]
+  },
+  "verification": {
+    "riskScore": 18,
+    "riskBand": "LOW"
+  }
+}
