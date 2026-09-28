@@ -4,6 +4,45 @@ import { getAgriCredXContract, getReadOnlyContract, getReadOnlyProvider } from '
 import { ethers } from 'ethers';
 import { PlusCircle } from 'lucide-react';
 
+/** Compute SHA-256 hash of file bytes, returns 0x-prefixed hex string */
+async function hashFileBytes(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
+  'QUOTATION_SENT':          { label: 'QUOTATION SENT',          color: 'text-amber-800',    bg: 'bg-amber-100' },
+  'BUYER_ACCEPTED':          { label: 'BUYER ACCEPTED',          color: 'text-emerald-800',  bg: 'bg-emerald-100' },
+  'DOCUMENTATION_UPLOADED':  { label: 'DOCS UPLOADED',           color: 'text-blue-800',     bg: 'bg-blue-100' },
+  'PACKED':                  { label: 'PACKED',                  color: 'text-violet-800',   bg: 'bg-violet-100' },
+  'IN_TRANSIT':              { label: 'IN TRANSIT',              color: 'text-orange-800',   bg: 'bg-orange-100' },
+  'DELIVERED':               { label: 'DELIVERED',               color: 'text-emerald-900',  bg: 'bg-emerald-200' },
+  'VERIFIED':                { label: 'VERIFIED',                color: 'text-teal-800',     bg: 'bg-teal-100' },
+  'ATTESTED':                { label: 'ATTESTED',                color: 'text-cyan-800',     bg: 'bg-cyan-100' },
+  'FINANCEABLE':             { label: 'FINANCEABLE',             color: 'text-indigo-800',   bg: 'bg-indigo-100' },
+  'FUNDED':                  { label: 'FUNDED',                  color: 'text-purple-800',   bg: 'bg-purple-100' },
+  'OUTSTANDING':             { label: 'OUTSTANDING',             color: 'text-pink-800',     bg: 'bg-pink-100' },
+  'REPAID':                  { label: 'REPAID',                  color: 'text-emerald-900',  bg: 'bg-emerald-200' },
+  'CLOSED':                  { label: 'CLOSED',                  color: 'text-slate-800',    bg: 'bg-slate-200' },
+  'DISPUTED':                { label: 'DISPUTED',                color: 'text-red-800',      bg: 'bg-red-100' },
+};
+
+function statusFromEnum(n: number): string {
+  const map: Record<number, string> = {
+    0: 'QUOTATION_SENT', 1: 'BUYER_ACCEPTED', 2: 'DOCUMENTATION_UPLOADED',
+    3: 'PACKED', 4: 'IN_TRANSIT', 5: 'DELIVERED',
+    6: 'VERIFIED', 7: 'ATTESTED', 8: 'FINANCEABLE',
+    9: 'FUNDED', 10: 'OUTSTANDING', 11: 'REPAID', 12: 'CLOSED', 13: 'DISPUTED',
+  };
+  return map[n] || 'UNKNOWN';
+}
+
+function getStatusStyle(statusKey: string) {
+  return STATUS_MAP[statusKey] || { label: statusKey, color: 'text-slate-800', bg: 'bg-slate-100' };
+}
+
 export default function BuyerDashboard() {
   const { isConnected, signer, address } = useWallet();
   const [receivableId, setReceivableId] = useState('');
@@ -24,6 +63,13 @@ export default function BuyerDashboard() {
   const [postedRequirements, setPostedRequirements] = useState<any[]>([]);
   const [pendingReviewCount, setPendingReviewCount] = useState<number>(0);
   const [totalSettled, setTotalSettled] = useState<number>(0);
+
+  // Table refresh key (incremented to force table reload)
+  const [tableRefreshKey, setTableRefreshKey] = useState(0);
+
+  // Verify document hash state
+  const [verifyingDoc, setVerifyingDoc] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<{ match: boolean; fileHash: string; chainHash: string } | null>(null);
 
   useEffect(() => {
     const reqs = JSON.parse(localStorage.getItem('agricredx_buyer_requests') || '[]');
@@ -72,7 +118,7 @@ export default function BuyerDashboard() {
       }
     };
     fetchStats();
-  }, [showRfpModal, signer, address]);
+  }, [showRfpModal, signer, address, tableRefreshKey]);
 
   const fetchReceivable = async () => {
     if (!receivableId) return;
@@ -85,10 +131,13 @@ export default function BuyerDashboard() {
         invoiceId: data.invoiceId,
         amount: ethers.formatEther(data.amount),
         buyer: data.buyer,
+        supplier: data.supplier,
         status: Number(data.status),
+        statusKey: statusFromEnum(Number(data.status)),
         attestationDigest: data.attestationDigest
       });
       setTxHash(null);
+      setVerifyResult(null);
     } catch (err: any) {
       console.error(err);
       alert("Failed to fetch receivable");
@@ -109,13 +158,33 @@ export default function BuyerDashboard() {
       });
       setTxHash(tx.hash);
       await tx.wait();
-      alert("Transaction confirmed!");
-      await fetchReceivable(); // refresh state
+      // Refresh both the active receivable details AND the table
+      await fetchReceivable();
+      setTableRefreshKey(k => k + 1);
     } catch (err: any) {
       console.error(err);
       alert(err.reason || err.message);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifyDocument = async (file: File) => {
+    if (!activeReceivable || !activeReceivable.attestationDigest) return;
+    setVerifyingDoc(true);
+    try {
+      const fileBuffer = await file.arrayBuffer();
+      const fileBytes = new Uint8Array(fileBuffer);
+      const computedHash = ethers.keccak256(fileBytes);
+
+      const chainHash = activeReceivable.attestationDigest;
+      const match = computedHash.toLowerCase() === chainHash.toLowerCase();
+      setVerifyResult({ match, fileHash: computedHash, chainHash });
+    } catch (err) {
+      console.error("Verification failed:", err);
+      alert("Failed to verify document hash.");
+    } finally {
+      setVerifyingDoc(false);
     }
   };
 
@@ -273,6 +342,7 @@ export default function BuyerDashboard() {
               </div>
             ) : (
               <div className="space-y-6 animate-fade-in">
+                {/* Receivable Details Grid */}
                 <div className="grid grid-cols-2 gap-4 p-5 bg-slate-50 rounded-xl border border-slate-100">
                   <div>
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Invoice ID</p>
@@ -280,19 +350,84 @@ export default function BuyerDashboard() {
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Amount</p>
-                    <p className="font-bold text-emerald-600">{activeReceivable.amount} INR</p>
+                    <p className="font-bold text-emerald-600">{activeReceivable.amount} MSTC</p>
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</p>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 mt-1">
-                      {statusMap[activeReceivable.status]}
-                    </span>
+                    {(() => {
+                      const style = getStatusStyle(activeReceivable.statusKey);
+                      return (
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold mt-1 ${style.bg} ${style.color}`}>
+                          {style.label}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Supplier</p>
+                    <p className="font-mono text-xs text-slate-600 truncate">{activeReceivable.supplier}</p>
                   </div>
                   <div className="col-span-2">
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Assigned Buyer</p>
                     <p className="font-mono text-xs text-slate-600 truncate">{activeReceivable.buyer}</p>
                   </div>
                 </div>
+
+                {/* Lifecycle Progress Tracker */}
+                <div className="bg-slate-50 rounded-xl border border-slate-100 p-4">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Lifecycle Progress</p>
+                  <div className="flex items-center gap-1 overflow-x-auto pb-1">
+                    {['QUOTATION_SENT', 'BUYER_ACCEPTED', 'DOCUMENTATION_UPLOADED', 'PACKED', 'IN_TRANSIT', 'DELIVERED'].map((step, idx) => {
+                      const currentIdx = activeReceivable.status;
+                      const isCompleted = idx < currentIdx;
+                      const isCurrent = idx === currentIdx;
+                      return (
+                        <React.Fragment key={step}>
+                          <div className={`flex flex-col items-center min-w-[70px] ${isCurrent ? 'scale-105' : ''}`}>
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
+                              isCompleted ? 'bg-emerald-500 border-emerald-500 text-white' :
+                              isCurrent ? 'bg-white border-emerald-500 text-emerald-600 ring-2 ring-emerald-200' :
+                              'bg-slate-100 border-slate-300 text-slate-400'
+                            }`}>
+                              {isCompleted ? (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                              ) : (
+                                idx + 1
+                              )}
+                            </div>
+                            <p className={`text-[9px] mt-1 text-center leading-tight font-medium ${
+                              isCurrent ? 'text-emerald-700' : isCompleted ? 'text-emerald-600' : 'text-slate-400'
+                            }`}>
+                              {step.replace(/_/g, ' ').replace('DOCUMENTATION ', 'DOCS ')}
+                            </p>
+                          </div>
+                          {idx < 5 && (
+                            <div className={`flex-1 h-0.5 min-w-[12px] ${isCompleted ? 'bg-emerald-500' : 'bg-slate-200'}`}></div>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Acceptance Confirmation (shown after buyer accepted) */}
+                {activeReceivable.status >= 1 && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-emerald-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      <div>
+                        <p className="font-semibold text-emerald-900 text-sm">Quotation Accepted — Escrow Locked</p>
+                        <p className="text-xs text-emerald-700 mt-0.5">
+                          {activeReceivable.amount} MSTC is locked in the smart contract escrow. 
+                          {activeReceivable.status === 1 && ' Waiting for supplier to upload documentation.'}
+                          {activeReceivable.status === 2 && ' Supplier has uploaded and hashed documents. Ready for logistics.'}
+                          {activeReceivable.status >= 3 && activeReceivable.status <= 4 && ' Order is in the logistics pipeline.'}
+                          {activeReceivable.status === 5 && ' Order delivered! Escrow has been released to supplier.'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Cryptographic Attestation Widget */}
                 {activeReceivable.status >= 2 && (
@@ -313,13 +448,42 @@ export default function BuyerDashboard() {
                       <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                     </div>
                     <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
-                      <p className="text-slate-400 text-xs mb-1">On-Chain Document Hash (SHA-256)</p>
+                      <p className="text-slate-400 text-xs mb-1">On-Chain Document Hash (keccak256)</p>
                       <p className="text-emerald-400 text-xs font-mono truncate">{activeReceivable.attestationDigest}</p>
                     </div>
+                    {/* Document Hash Verification */}
+                    <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                      <p className="text-slate-400 text-xs mb-2">Verify a Supplier Document Against On-Chain Hash</p>
+                      <label className={`inline-flex items-center text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1.5 rounded hover:bg-indigo-500/30 transition-colors border border-indigo-500/30 font-semibold cursor-pointer ${verifyingDoc ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                        {verifyingDoc ? 'Verifying...' : 'Upload & Verify Document'}
+                        <input 
+                          type="file" 
+                          className="hidden"
+                          accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleVerifyDocument(file);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {/* Verify Result inline */}
+                    {verifyResult && (
+                      <div className={`p-3 rounded-lg border ${verifyResult.match ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                        <p className={`text-xs font-bold mb-1 ${verifyResult.match ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {verifyResult.match ? '✓ HASH MATCH — Document Integrity Verified' : '✗ HASH MISMATCH — Document Tampered or Different File'}
+                        </p>
+                        <p className="text-slate-400 text-[10px] font-mono truncate">File: {verifyResult.fileHash}</p>
+                        <p className="text-slate-400 text-[10px] font-mono truncate">Chain: {verifyResult.chainHash}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
                 )}
 
+                {/* Action Buttons */}
                 <div className="flex gap-4">
                   {activeReceivable.status === 0 /* QUOTATION_SENT */ && (
                     <button 
@@ -330,9 +494,29 @@ export default function BuyerDashboard() {
                       {isSubmitting ? 'Processing...' : 'Accept Quotation & Lock Escrow'}
                     </button>
                   )}
-                  {activeReceivable.status !== 0 && (
+                  {activeReceivable.status === 1 && (
+                    <div className="w-full text-center p-3 text-sm bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 font-medium">
+                      ✓ Quotation Accepted. Awaiting supplier document upload.
+                    </div>
+                  )}
+                  {activeReceivable.status === 2 && (
+                    <div className="w-full text-center p-3 text-sm bg-blue-50 border border-blue-200 rounded-lg text-blue-700 font-medium">
+                      📄 Documents Uploaded & Hashed. Awaiting logistics pickup.
+                    </div>
+                  )}
+                  {(activeReceivable.status === 3 || activeReceivable.status === 4) && (
+                    <div className="w-full text-center p-3 text-sm bg-orange-50 border border-orange-200 rounded-lg text-orange-700 font-medium">
+                      🚚 Order is {activeReceivable.status === 3 ? 'packed and ready for dispatch' : 'in transit to you'}.
+                    </div>
+                  )}
+                  {activeReceivable.status === 5 && (
+                    <div className="w-full text-center p-3 text-sm bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 font-medium">
+                      ✅ Delivered! Escrow of {activeReceivable.amount} MSTC released to supplier.
+                    </div>
+                  )}
+                  {activeReceivable.status > 5 && (
                     <div className="w-full text-center p-3 text-sm text-slate-500 bg-slate-50 rounded-lg">
-                      No buyer actions available for status: {statusMap[activeReceivable.status]}
+                      Current state: {statusMap[activeReceivable.status]}
                     </div>
                   )}
                 </div>
@@ -353,13 +537,13 @@ export default function BuyerDashboard() {
         <div id="receivables-table" className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mt-8">
           <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
             <h2 className="text-lg font-semibold text-slate-800">Your Actionable Receivables</h2>
-            <button onClick={() => window.location.reload()} className="text-sm text-emerald-600 hover:text-emerald-800 flex items-center">
+            <button onClick={() => setTableRefreshKey(k => k + 1)} className="text-sm text-emerald-600 hover:text-emerald-800 flex items-center">
               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
               Refresh Data
             </button>
           </div>
           <div className="p-6">
-            <BuyerReceivablesTable onSelect={(id: string) => { setReceivableId(id); setTimeout(() => fetchReceivable(), 100); }} />
+            <BuyerReceivablesTable refreshKey={tableRefreshKey} onSelect={(id: string) => { setReceivableId(id); setTimeout(() => fetchReceivable(), 100); }} />
           </div>
         </div>
       )}
@@ -439,7 +623,7 @@ export default function BuyerDashboard() {
   );
 }
 
-function BuyerReceivablesTable({ onSelect }: { onSelect: (id: string) => void }) {
+function BuyerReceivablesTable({ onSelect, refreshKey }: { onSelect: (id: string) => void; refreshKey: number }) {
   const [receivables, setReceivables] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -453,13 +637,15 @@ function BuyerReceivablesTable({ onSelect }: { onSelect: (id: string) => void })
         const data = [];
         for (let i = 1; i <= Number(count); i++) {
           const r = await contract.receivables(i);
+          const statusKey = statusFromEnum(Number(r.status));
           data.push({
             id: i,
             invoice_id: r.invoiceId,
             amount: ethers.formatEther(r.amount),
             currency: 'MSTC',
             due_date: new Date(Number(r.dueDate) * 1000).toISOString(),
-            status: Number(r.status) === 0 ? 'QUOTATION_SENT' : Number(r.status) === 1 ? 'BUYER_ACCEPTED' : Number(r.status) === 2 ? 'DOCUMENTATION_UPLOADED' : Number(r.status) === 3 ? 'PACKED' : Number(r.status) === 4 ? 'IN_TRANSIT' : Number(r.status) === 5 ? 'DELIVERED' : 'UNKNOWN',
+            status: statusKey,
+            statusNum: Number(r.status),
             on_chain_id: i.toString(),
           });
         }
@@ -470,7 +656,7 @@ function BuyerReceivablesTable({ onSelect }: { onSelect: (id: string) => void })
       setLoading(false);
     }
     loadData();
-  }, []);
+  }, [refreshKey]);
 
   if (loading) return <div className="text-center py-8 text-slate-500">Loading receivables from database...</div>;
   if (receivables.length === 0) return <div className="text-center py-8 text-slate-500">No active receivables found for you.</div>;
@@ -488,25 +674,28 @@ function BuyerReceivablesTable({ onSelect }: { onSelect: (id: string) => void })
           </tr>
         </thead>
         <tbody>
-          {receivables.map((r) => (
-            <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50">
-              <td className="px-4 py-3 font-medium text-slate-900">{r.invoice_id}</td>
-              <td className="px-4 py-3 font-mono">{r.amount} {r.currency}</td>
-              <td className="px-4 py-3">{new Date(r.due_date).toLocaleDateString()}</td>
-              <td className="px-4 py-3">
-                <span className="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded">{r.status}</span>
-              </td>
-              <td className="px-4 py-3">
-                <button 
-                  onClick={() => onSelect(r.on_chain_id?.toString() || '')}
-                  disabled={!r.on_chain_id}
-                  className="text-xs bg-slate-900 text-white px-3 py-1 rounded hover:bg-slate-800 disabled:opacity-50"
-                >
-                  {r.status === 'QUOTATION_SENT' ? 'View Quotation' : `Load ID #${r.on_chain_id || '?'}`}
-                </button>
-              </td>
-            </tr>
-          ))}
+          {receivables.map((r) => {
+            const style = getStatusStyle(r.status);
+            return (
+              <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50">
+                <td className="px-4 py-3 font-medium text-slate-900">{r.invoice_id}</td>
+                <td className="px-4 py-3 font-mono">{r.amount} {r.currency}</td>
+                <td className="px-4 py-3">{new Date(r.due_date).toLocaleDateString()}</td>
+                <td className="px-4 py-3">
+                  <span className={`text-xs font-semibold px-2.5 py-0.5 rounded ${style.bg} ${style.color}`}>{style.label}</span>
+                </td>
+                <td className="px-4 py-3">
+                  <button 
+                    onClick={() => onSelect(r.on_chain_id?.toString() || '')}
+                    disabled={!r.on_chain_id}
+                    className="text-xs bg-slate-900 text-white px-3 py-1 rounded hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {r.status === 'QUOTATION_SENT' ? 'Review Quotation' : r.status === 'BUYER_ACCEPTED' ? '✓ Accepted' : `Load ID #${r.on_chain_id || '?'}`}
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

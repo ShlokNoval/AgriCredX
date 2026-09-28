@@ -21,6 +21,9 @@ export default function SupplierDashboard() {
   const [activeDeliveries, setActiveDeliveries] = useState(0);
   const [totalEarned, setTotalEarned] = useState(0);
 
+  // Table refresh key
+  const [tableRefreshKey, setTableRefreshKey] = useState(0);
+
   React.useEffect(() => {
     setOpenRequests(JSON.parse(localStorage.getItem('agricredx_buyer_requests') || '[]').filter((r: any) => r.status === 'OPEN'));
     
@@ -47,7 +50,7 @@ export default function SupplierDashboard() {
       }
     };
     fetchStats();
-  }, []);
+  }, [tableRefreshKey]);
   
   const handleCreateReceivable = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,6 +106,7 @@ export default function SupplierDashboard() {
       setAmount('');
       setInvoiceId('');
       setDueDateDays('');
+      setTableRefreshKey(k => k + 1); // Refresh the table
     } catch (err: any) {
       console.error("Failed to create receivable:", err);
       alert(err.reason || err.message || "Transaction failed. Check console.");
@@ -307,22 +311,56 @@ export default function SupplierDashboard() {
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
           <h2 className="text-lg font-semibold text-slate-800">Your Active Receivables</h2>
-          <button onClick={() => window.location.reload()} className="text-sm text-blue-600 hover:text-blue-800 flex items-center">
+          <button onClick={() => setTableRefreshKey(k => k + 1)} className="text-sm text-blue-600 hover:text-blue-800 flex items-center">
             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             Refresh Data
           </button>
         </div>
         <div className="p-6">
-          <SupplierReceivablesTable />
+          <SupplierReceivablesTable signer={signer} refreshKey={tableRefreshKey} onUploaded={() => setTableRefreshKey(k => k + 1)} />
         </div>
       </div>
     </div>
   );
 }
 
-function SupplierReceivablesTable() {
+/** Compute SHA-256 hash of file bytes, returns 0x-prefixed hex string */
+async function hashFileBytes(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const STATUS_MAP: Record<string, { label: string; color: string }> = {
+  'QUOTATION_SENT':          { label: 'QUOTATION SENT',          color: 'bg-amber-100 text-amber-800' },
+  'BUYER_ACCEPTED':          { label: 'BUYER ACCEPTED',          color: 'bg-emerald-100 text-emerald-800' },
+  'DOCUMENTATION_UPLOADED':  { label: 'DOCS UPLOADED',           color: 'bg-blue-100 text-blue-800' },
+  'PACKED':                  { label: 'PACKED',                  color: 'bg-violet-100 text-violet-800' },
+  'IN_TRANSIT':              { label: 'IN TRANSIT',              color: 'bg-orange-100 text-orange-800' },
+  'DELIVERED':               { label: 'DELIVERED',               color: 'bg-emerald-200 text-emerald-900' },
+  'UNKNOWN':                 { label: 'UNKNOWN',                 color: 'bg-slate-100 text-slate-800' },
+};
+
+function statusFromEnum(n: number): string {
+  const map: Record<number, string> = {
+    0: 'QUOTATION_SENT', 1: 'BUYER_ACCEPTED', 2: 'DOCUMENTATION_UPLOADED',
+    3: 'PACKED', 4: 'IN_TRANSIT', 5: 'DELIVERED',
+    6: 'VERIFIED', 7: 'ATTESTED', 8: 'FINANCEABLE',
+    9: 'FUNDED', 10: 'OUTSTANDING', 11: 'REPAID', 12: 'CLOSED', 13: 'DISPUTED',
+  };
+  return map[n] || 'UNKNOWN';
+}
+
+function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: ethers.JsonRpcSigner | null; refreshKey: number; onUploaded: () => void }) {
   const [receivables, setReceivables] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState<string | null>(null); // tracks which ID is uploading
+  const [uploadResult, setUploadResult] = useState<{ id: string; hash: string; txHash: string } | null>(null);
+
+  // Verify document hash state
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [verifyResult, setVerifyResult] = useState<{ id: string; match: boolean; fileHash: string; chainHash: string } | null>(null);
 
   React.useEffect(() => {
     async function loadData() {
@@ -340,7 +378,8 @@ function SupplierReceivablesTable() {
             amount: ethers.formatEther(r.amount),
             currency: 'MSTC',
             due_date: new Date(Number(r.dueDate) * 1000).toISOString(),
-            status: Number(r.status) === 0 ? 'QUOTATION_SENT' : Number(r.status) === 1 ? 'BUYER_ACCEPTED' : Number(r.status) === 2 ? 'DOCUMENTATION_UPLOADED' : Number(r.status) === 3 ? 'PACKED' : Number(r.status) === 4 ? 'IN_TRANSIT' : Number(r.status) === 5 ? 'DELIVERED' : 'UNKNOWN',
+            status: statusFromEnum(Number(r.status)),
+            statusNum: Number(r.status),
             on_chain_id: i.toString(),
             attestation_digest: r.attestationDigest
           });
@@ -352,30 +391,57 @@ function SupplierReceivablesTable() {
       setLoading(false);
     }
     loadData();
-  }, []);
+  }, [refreshKey]);
 
-  const handleUploadDocs = async (id: string) => {
+  const handleUploadDocs = async (id: string, file: File) => {
     try {
       if (!signer) {
-        throw new Error("Wallet not connected.");
+        alert("Wallet not connected. Please connect your wallet first.");
+        return;
       }
+      setIsUploading(id);
+
+      // Compute real SHA-256 hash of the uploaded file bytes
+      const fileHash = await hashFileBytes(file);
+      console.log(`Document "${file.name}" hashed: ${fileHash}`);
+
+      // Convert the SHA-256 hex to bytes32 for the contract
+      // Use keccak256 of the raw file bytes for on-chain compatibility (bytes32)
+      const fileBuffer = await file.arrayBuffer();
+      const fileBytes = new Uint8Array(fileBuffer);
+      const digest = ethers.keccak256(fileBytes);
+
       const contract = getAgriCredXContract(signer);
-      
-      // Simulate Grok AI processing delay (No alert)
-      setIsSubmitting(true);
-      const { ethers } = await import('ethers');
-      const dummyDigest = ethers.keccak256(ethers.toUtf8Bytes("demo_invoice_grn_" + Date.now()));
-      
-      const tx = await contract.uploadDocumentation(id, dummyDigest);
+      const tx = await contract.uploadDocumentation(id, digest);
       await tx.wait();
+
+      setUploadResult({ id, hash: digest, txHash: tx.hash });
+      console.log(`Documentation anchored on-chain. Digest: ${digest}`);
       
-      alert("Documents Verified! Hashed successfully. QR Code is now ready.");
-      window.location.reload();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to upload documentation. Ensure the contract ABI is up to date.");
+      // Refresh the table to show updated status
+      onUploaded();
+    } catch (err: any) {
+      console.error("Upload documentation failed:", err);
+      alert(err.reason || err.message || "Failed to upload documentation. Ensure wallet is connected and contract ABI is up to date.");
     } finally {
-      setIsSubmitting(false);
+      setIsUploading(null);
+    }
+  };
+
+  const handleVerifyDocument = async (id: string, chainDigest: string, file: File) => {
+    try {
+      setVerifyingId(id);
+      const fileBuffer = await file.arrayBuffer();
+      const fileBytes = new Uint8Array(fileBuffer);
+      const computedHash = ethers.keccak256(fileBytes);
+
+      const match = computedHash.toLowerCase() === chainDigest.toLowerCase();
+      setVerifyResult({ id, match, fileHash: computedHash, chainHash: chainDigest });
+    } catch (err) {
+      console.error("Verification failed:", err);
+      alert("Failed to verify document hash.");
+    } finally {
+      setVerifyingId(null);
     }
   };
 
@@ -383,58 +449,132 @@ function SupplierReceivablesTable() {
   if (receivables.length === 0) return <div className="text-center py-8 text-slate-500">No active receivables found. Create one above!</div>;
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm text-slate-600">
-        <thead className="text-xs uppercase bg-slate-50 text-slate-700">
-          <tr>
-            <th className="px-4 py-3">Quotation / Invoice</th>
-            <th className="px-4 py-3">Amount</th>
-            <th className="px-4 py-3">Due Date</th>
-            <th className="px-4 py-3">Status</th>
-            <th className="px-4 py-3">On-Chain ID</th>
-            <th className="px-4 py-3">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {receivables.map((r) => (
-            <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50">
-              <td className="px-4 py-3 font-medium text-slate-900">{r.invoice_id}</td>
-              <td className="px-4 py-3 font-mono">{r.amount} {r.currency}</td>
-              <td className="px-4 py-3">{new Date(r.due_date).toLocaleDateString()}</td>
-              <td className="px-4 py-3">
-                <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">{r.status}</span>
-              </td>
-              <td className="px-4 py-3 font-mono text-xs">{r.on_chain_id ? `#${r.on_chain_id}` : 'Pending NFT'}</td>
-              <td className="px-4 py-3">
-                {r.on_chain_id && r.status === 'BUYER_ACCEPTED' && (
-                  <button 
-                    onClick={() => handleUploadDocs(r.on_chain_id)}
-                    disabled={isSubmitting}
-                    className="flex items-center text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded hover:bg-emerald-200 transition-colors border border-emerald-200 font-semibold disabled:opacity-50"
-                    title="Upload documentation and generate Hash Key"
-                  >
-                    {isSubmitting ? 'Processing via AI...' : 'Upload Docs & Hash'}
-                  </button>
-                )}
-                {r.on_chain_id && (r.status === 'DOCUMENTATION_UPLOADED' || r.status === 'PACKED' || r.status === 'IN_TRANSIT') && (
-                  <button 
-                    onClick={() => {
-                      const baseUrl = "https://hosea-requisitionary-unawares.ngrok-free.dev";
-                      const url = `${baseUrl}/delivery/${r.on_chain_id}?hash=${r.attestation_digest || 'unsigned'}`;
-                      window.open(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`, '_blank', 'width=400,height=400');
-                    }}
-                    className="flex items-center text-xs bg-slate-100 text-slate-700 px-3 py-1.5 rounded hover:bg-blue-50 hover:text-blue-600 transition-colors border border-slate-200"
-                    title="Generate QR code for physical logistics"
-                  >
-                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
-                    Print QR
-                  </button>
-                )}
-              </td>
+    <div className="space-y-4">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm text-slate-600">
+          <thead className="text-xs uppercase bg-slate-50 text-slate-700">
+            <tr>
+              <th className="px-4 py-3">Quotation / Invoice</th>
+              <th className="px-4 py-3">Amount</th>
+              <th className="px-4 py-3">Due Date</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">On-Chain ID</th>
+              <th className="px-4 py-3">Action</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {receivables.map((r) => {
+              const statusInfo = STATUS_MAP[r.status] || STATUS_MAP['UNKNOWN'];
+              return (
+                <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="px-4 py-3 font-medium text-slate-900">{r.invoice_id}</td>
+                  <td className="px-4 py-3 font-mono">{r.amount} {r.currency}</td>
+                  <td className="px-4 py-3">{new Date(r.due_date).toLocaleDateString()}</td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded ${statusInfo.color}`}>{statusInfo.label}</span>
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs">{r.on_chain_id ? `#${r.on_chain_id}` : 'Pending NFT'}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col gap-2">
+                      {/* Upload Docs button - only when BUYER_ACCEPTED */}
+                      {r.on_chain_id && r.status === 'BUYER_ACCEPTED' && (
+                        <label 
+                          className={`flex items-center text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded hover:bg-emerald-200 transition-colors border border-emerald-200 font-semibold cursor-pointer ${isUploading === r.on_chain_id ? 'opacity-50 pointer-events-none' : ''}`}
+                          title="Select a document (Invoice/GRN PDF) to hash and anchor on-chain"
+                        >
+                          <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                          {isUploading === r.on_chain_id ? 'Hashing & Anchoring...' : 'Upload Docs & Hash'}
+                          <input 
+                            type="file" 
+                            className="hidden"
+                            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleUploadDocs(r.on_chain_id, file);
+                              e.target.value = ''; // reset input
+                            }}
+                          />
+                        </label>
+                      )}
+                      
+                      {/* Verify Document Hash - after docs uploaded */}
+                      {r.on_chain_id && r.statusNum >= 2 && r.attestation_digest && r.attestation_digest !== ethers.ZeroHash && (
+                        <label
+                          className={`flex items-center text-xs bg-slate-100 text-slate-700 px-3 py-1.5 rounded hover:bg-indigo-50 hover:text-indigo-600 transition-colors border border-slate-200 font-semibold cursor-pointer ${verifyingId === r.on_chain_id ? 'opacity-50 pointer-events-none' : ''}`}
+                          title="Select a document to verify its hash against the on-chain digest"
+                        >
+                          <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                          {verifyingId === r.on_chain_id ? 'Verifying...' : 'Verify Doc Hash'}
+                          <input 
+                            type="file" 
+                            className="hidden"
+                            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleVerifyDocument(r.on_chain_id, r.attestation_digest, file);
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
+                      )}
+
+                      {/* Print QR - after docs uploaded and during logistics */}
+                      {r.on_chain_id && (r.status === 'DOCUMENTATION_UPLOADED' || r.status === 'PACKED' || r.status === 'IN_TRANSIT') && (
+                        <button 
+                          onClick={() => {
+                            const baseUrl = window.location.origin;
+                            const url = `${baseUrl}/delivery/${r.on_chain_id}?hash=${r.attestation_digest || 'unsigned'}`;
+                            window.open(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`, '_blank', 'width=400,height=400');
+                          }}
+                          className="flex items-center text-xs bg-slate-100 text-slate-700 px-3 py-1.5 rounded hover:bg-blue-50 hover:text-blue-600 transition-colors border border-slate-200"
+                          title="Generate QR code for physical logistics"
+                        >
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
+                          Print QR
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Upload Success Confirmation */}
+      {uploadResult && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl animate-fade-in">
+          <div className="flex items-start">
+            <svg className="w-5 h-5 text-emerald-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <div className="space-y-1">
+              <p className="font-semibold text-emerald-900">Document Hashed & Anchored On-Chain (Receivable #{uploadResult.id})</p>
+              <p className="text-xs text-emerald-700"><strong>Attestation Digest:</strong> <span className="font-mono break-all">{uploadResult.hash}</span></p>
+              <p className="text-xs text-emerald-700"><strong>TX Hash:</strong> <span className="font-mono break-all">{uploadResult.txHash}</span></p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Verify Result */}
+      {verifyResult && (
+        <div className={`p-4 border rounded-xl animate-fade-in ${verifyResult.match ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+          <div className="flex items-start">
+            {verifyResult.match ? (
+              <svg className="w-5 h-5 text-emerald-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            ) : (
+              <svg className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            )}
+            <div className="space-y-1">
+              <p className={`font-semibold ${verifyResult.match ? 'text-emerald-900' : 'text-red-900'}`}>
+                {verifyResult.match ? '✓ HASH MATCH — Document Integrity Verified' : '✗ HASH MISMATCH — Document Tampered or Different File'}
+              </p>
+              <p className="text-xs text-slate-700"><strong>File Hash:</strong> <span className="font-mono break-all">{verifyResult.fileHash}</span></p>
+              <p className="text-xs text-slate-700"><strong>On-Chain Hash:</strong> <span className="font-mono break-all">{verifyResult.chainHash}</span></p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
