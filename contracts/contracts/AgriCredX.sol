@@ -178,7 +178,8 @@ contract AgriCredX is ERC721URIStorage, Ownable {
         
         if (_newStatus == ReceivableStatus.DELIVERED) {
             emit OrderDelivered(_id);
-            // In a production system, Escrow pays Supplier here via transfer() of ERC20 MSTC.
+            // Escrow automatically releases native funds to Supplier upon delivery
+            r.supplier.transfer(r.amount);
         }
         emit StatusUpdated(_id, oldStatus, r.status);
     }
