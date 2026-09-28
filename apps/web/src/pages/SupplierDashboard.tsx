@@ -356,8 +356,10 @@ function SupplierReceivablesTable() {
 
   const handleUploadDocs = async (id: string) => {
     try {
-      const { getContract } = await import('../lib/contract');
-      const contract = await getContract();
+      const { getReadOnlyProvider, getAgriCredXContract } = await import('../lib/contract');
+      const localProvider = getReadOnlyProvider();
+      const localSigner = await localProvider.getSigner(0); // Account #0 is Supplier
+      const contract = getAgriCredXContract(localSigner);
       
       // Simulate Grok AI processing delay
       alert("Simulating Grok AI Document Processing...");
