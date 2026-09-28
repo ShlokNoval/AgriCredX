@@ -7,7 +7,12 @@ dotenv.config({ path: "../.env" });
 dotenv.config(); // fallback
 
 const config: HardhatUserConfig = {
-  solidity: "0.8.24",
+  solidity: {
+    version: "0.8.24",
+    settings: {
+      evmVersion: "cancun",
+    },
+  },
   networks: {
     mst_testnet: {
       url: process.env.MST_RPC_URL || "https://testnetrpc.mstblockchain.com",

@@ -38,7 +38,7 @@ export default function FinancierDashboard() {
     try {
       const contract = getAgriCredXContract(signer);
       const parsedAmount = ethers.parseEther(fundAmount);
-      const tx = await contract.fundReceivable(activeReceivable.id, parsedAmount);
+      const tx = await contract.fundReceivable(activeReceivable.id, { value: parsedAmount });
       
       setTxHash(tx.hash);
       await tx.wait();

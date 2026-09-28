@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
 /**
  * @title AgriCredX
  * @dev Master contract for the AgriCredX MST Buildathon prototype.
- * Consolidates InvoiceRegistry, AttestationRegistry, FinancingPool, and RepaymentManager
- * logic into a single contract to ensure safety and simplify 24-hour MVP deployment,
- * while preserving all logical invariants.
+ * Upgraded to incorporate NFT-based certificates, Native MST Escrow, and On-chain Delivery.
  */
-contract AgriCredX {
+contract AgriCredX is ERC721URIStorage, Ownable {
     
     // ============================================================
     // ENUMS & STRUCTS
@@ -16,11 +17,12 @@ contract AgriCredX {
 
     /**
      * @dev Canonical Lifecycle State Machine
-     * FROZEN: CREATED → VERIFIED → BUYER_ACCEPTED → ATTESTED → FINANCEABLE
+     * FROZEN: CREATED → DELIVERED → VERIFIED → BUYER_ACCEPTED → ATTESTED → FINANCEABLE
      * → FUNDED → OUTSTANDING → REPAID → CLOSED
      */
     enum ReceivableStatus {
         CREATED,
+        DELIVERED,       // Added per judge feedback
         VERIFIED,
         BUYER_ACCEPTED,
         ATTESTED,
@@ -34,13 +36,13 @@ contract AgriCredX {
 
     struct Receivable {
         string invoiceId;
-        address supplier;
+        address payable supplier;
         address buyer;
         uint256 amount;
         uint256 dueDate;
         ReceivableStatus status;
         bytes32 attestationDigest;
-        address financier;       // Set during funding
+        address payable financier;
         uint256 fundedAmount;
     }
 
@@ -64,6 +66,7 @@ contract AgriCredX {
     event AttestationAnchored(uint256 indexed id, bytes32 digest);
     event ReceivableFunded(uint256 indexed id, address indexed financier, uint256 fundedAmount);
     event ReceivableRepaid(uint256 indexed id, uint256 amount);
+    event OrderDelivered(uint256 indexed id);
 
     // ============================================================
     // MODIFIERS
@@ -83,7 +86,7 @@ contract AgriCredX {
     // CONSTRUCTOR
     // ============================================================
 
-    constructor(address _verifierNode) {
+    constructor(address _verifierNode) ERC721("AgriCredX Certificate", "AGCX") Ownable(msg.sender) {
         admin = msg.sender;
         verifierNode = _verifierNode;
     }
@@ -93,9 +96,9 @@ contract AgriCredX {
     // ============================================================
 
     /**
-     * @notice Step 1: Supplier creates a receivable
+     * @notice Step 1: Supplier creates a receivable & mints an NFT certificate
      */
-    function createReceivable(string memory _invoiceId, address _buyer, uint256 _amount, uint256 _dueDate) external returns (uint256) {
+    function createReceivable(string memory _invoiceId, address _buyer, uint256 _amount, uint256 _dueDate, string memory _tokenURI) external returns (uint256) {
         require(_buyer != address(0), "Invalid buyer address");
         require(_amount > 0, "Amount must be > 0");
         require(_dueDate > block.timestamp, "Due date must be in future");
@@ -105,18 +108,37 @@ contract AgriCredX {
 
         receivables[newId] = Receivable({
             invoiceId: _invoiceId,
-            supplier: msg.sender,
+            supplier: payable(msg.sender),
             buyer: _buyer,
             amount: _amount,
             dueDate: _dueDate,
             status: ReceivableStatus.CREATED,
             attestationDigest: bytes32(0),
-            financier: address(0),
+            financier: payable(address(0)),
             fundedAmount: 0
         });
 
+        // Mint NFT Certificate to the supplier
+        _mint(msg.sender, newId);
+        _setTokenURI(newId, _tokenURI);
+
         emit ReceivableCreated(newId, _invoiceId, msg.sender, _buyer, _amount, _dueDate);
         return newId;
+    }
+
+    /**
+     * @notice Step 1.5: Supplier marks order as delivered on-chain
+     */
+    function markDelivered(uint256 _id) external {
+        Receivable storage r = receivables[_id];
+        require(msg.sender == r.supplier, "Not the supplier");
+        require(r.status == ReceivableStatus.CREATED || r.status == ReceivableStatus.DISPUTED, "Invalid state transition");
+        
+        ReceivableStatus oldStatus = r.status;
+        r.status = ReceivableStatus.DELIVERED;
+        
+        emit OrderDelivered(_id);
+        emit StatusUpdated(_id, oldStatus, r.status);
     }
 
     /**
@@ -124,7 +146,7 @@ contract AgriCredX {
      */
     function setVerified(uint256 _id) external onlyVerifier {
         Receivable storage r = receivables[_id];
-        require(r.status == ReceivableStatus.CREATED || r.status == ReceivableStatus.DISPUTED, "Invalid state transition");
+        require(r.status == ReceivableStatus.DELIVERED || r.status == ReceivableStatus.CREATED, "Must be DELIVERED or CREATED");
         
         ReceivableStatus oldStatus = r.status;
         r.status = ReceivableStatus.VERIFIED;
@@ -171,33 +193,49 @@ contract AgriCredX {
     }
 
     /**
-     * @notice Step 6 & 7: Financier funds the receivable. State becomes FUNDED then OUTSTANDING
+     * @notice Step 6 & 7: Financier funds the receivable. Escrow automatically pays supplier.
      */
-    function fundReceivable(uint256 _id, uint256 _fundedAmount) external {
+    function fundReceivable(uint256 _id) external payable {
         Receivable storage r = receivables[_id];
         require(r.status == ReceivableStatus.FINANCEABLE, "Not financeable");
-        require(_fundedAmount > 0 && _fundedAmount <= r.amount, "Invalid funding amount");
+        require(msg.value > 0 && msg.value <= r.amount, "Invalid funding amount");
 
-        r.financier = msg.sender;
-        r.fundedAmount = _fundedAmount;
-        r.status = ReceivableStatus.OUTSTANDING; // Skips FUNDED as intermediate to reduce tx count in MVP
+        r.financier = payable(msg.sender);
+        r.fundedAmount = msg.value;
+        r.status = ReceivableStatus.OUTSTANDING; 
 
-        emit ReceivableFunded(_id, msg.sender, _fundedAmount);
+        // Escrow transfer: Pay the supplier immediately
+        (bool success, ) = r.supplier.call{value: msg.value}("");
+        require(success, "Transfer to supplier failed");
+
+        // The NFT certificate could optionally be transferred to the financier here
+        // _transfer(r.supplier, r.financier, _id);
+
+        emit ReceivableFunded(_id, msg.sender, msg.value);
         emit StatusUpdated(_id, ReceivableStatus.FINANCEABLE, r.status);
     }
 
     /**
-     * @notice Step 8 & 9: Repayment is recorded, moving to REPAID then CLOSED
+     * @notice Step 8 & 9: Buyer repays. Escrow pays financier.
      */
-    function markRepaid(uint256 _id) external {
+    function markRepaid(uint256 _id) external payable {
         Receivable storage r = receivables[_id];
-        // Only buyer or admin can trigger this in prototype
-        require(msg.sender == r.buyer || msg.sender == admin, "Not authorized");
         require(r.status == ReceivableStatus.OUTSTANDING, "Not outstanding");
+        require(msg.value >= r.amount, "Insufficient repayment");
 
-        r.status = ReceivableStatus.CLOSED; // Skips REPAID to reduce tx count in MVP
+        r.status = ReceivableStatus.CLOSED; 
 
-        emit ReceivableRepaid(_id, r.amount);
+        // Escrow transfer: Pay the financier their original funds + yield
+        if (r.financier != address(0)) {
+            (bool success, ) = r.financier.call{value: msg.value}("");
+            require(success, "Transfer to financier failed");
+        } else {
+            // If no financier, pay supplier directly (if they held it)
+            (bool success, ) = r.supplier.call{value: msg.value}("");
+            require(success, "Transfer to supplier failed");
+        }
+
+        emit ReceivableRepaid(_id, msg.value);
         emit StatusUpdated(_id, ReceivableStatus.OUTSTANDING, r.status);
     }
 

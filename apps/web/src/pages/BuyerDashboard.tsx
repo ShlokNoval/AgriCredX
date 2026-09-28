@@ -39,7 +39,8 @@ export default function BuyerDashboard() {
       if (actionType === 'ACCEPT') {
         tx = await contract.buyerAccept(activeReceivable.id);
       } else {
-        tx = await contract.markRepaid(activeReceivable.id);
+        const parsedAmount = ethers.parseEther(activeReceivable.amount);
+        tx = await contract.markRepaid(activeReceivable.id, { value: parsedAmount });
       }
       setTxHash(tx.hash);
       await tx.wait();

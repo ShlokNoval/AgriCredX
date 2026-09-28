@@ -26,7 +26,8 @@ export default function SupplierDashboard() {
       const dueDateTimestamp = Math.floor(Date.now() / 1000) + (parseInt(dueDateDays) * 24 * 60 * 60);
       
       console.log("Creating receivable with invoice ID:", invoiceId);
-      const tx = await contract.createReceivable(invoiceId, buyerAddress, parsedAmount, dueDateTimestamp);
+      const mockTokenUri = "ipfs://QmMockDocumentHashForNFTCertificate";
+      const tx = await contract.createReceivable(invoiceId, buyerAddress, parsedAmount, dueDateTimestamp, mockTokenUri);
       setTxHash(tx.hash);
       
       const receipt = await tx.wait(); // Wait for confirmation
