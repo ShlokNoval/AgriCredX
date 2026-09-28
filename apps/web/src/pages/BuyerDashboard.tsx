@@ -29,15 +29,20 @@ export default function BuyerDashboard() {
     const reqs = JSON.parse(localStorage.getItem('agricredx_buyer_requests') || '[]');
     setPostedRequirements(reqs.filter((r: any) => r.buyer === address || !address));
     setOpenRequestsCount(reqs.length);
-    
-    // Fetch MSTC Balance from local Hardhat node
+    // Fetch MSTC Balance from connected wallet
     const fetchBalance = async () => {
       try {
-        const localProvider = getReadOnlyProvider();
-        // Use Hardhat Account #1 as the "Buyer" for balance display
-        const buyerSigner = await localProvider.getSigner(1);
-        const buyerAddr = await buyerSigner.getAddress();
-        const bal = await localProvider.getBalance(buyerAddr);
+        if (!address) return;
+        
+        let bal;
+        if (typeof window !== 'undefined' && (window as any).ethereum) {
+          const browserProvider = new ethers.BrowserProvider((window as any).ethereum);
+          bal = await browserProvider.getBalance(address);
+        } else {
+          const localProvider = getReadOnlyProvider();
+          bal = await localProvider.getBalance(address);
+        }
+        
         setWalletBalance(ethers.formatEther(bal));
       } catch (e) {
         console.error("Failed to fetch balance", e);
