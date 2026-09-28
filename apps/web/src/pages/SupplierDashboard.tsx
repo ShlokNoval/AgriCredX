@@ -393,23 +393,36 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
     loadData();
   }, [refreshKey]);
 
-  const handleUploadDocs = async (id: string, file: File) => {
+  const handleUploadDocs = async (id: string, files: FileList) => {
     try {
       if (!signer) {
         alert("Wallet not connected. Please connect your wallet first.");
         return;
       }
+      if (files.length !== 3) {
+        alert("Please select exactly 3 documents: Invoice, PO, and GRN.");
+        return;
+      }
       setIsUploading(id);
 
-      // Compute real SHA-256 hash of the uploaded file bytes
-      const fileHash = await hashFileBytes(file);
-      console.log(`Document "${file.name}" hashed: ${fileHash}`);
+      // Sort files by name to ensure consistent hashing regardless of selection order
+      const fileArray = Array.from(files).sort((a, b) => a.name.localeCompare(b.name));
+      
+      let totalLength = 0;
+      const buffers = await Promise.all(fileArray.map(async f => {
+        const buf = new Uint8Array(await f.arrayBuffer());
+        totalLength += buf.length;
+        return buf;
+      }));
 
-      // Convert the SHA-256 hex to bytes32 for the contract
-      // Use keccak256 of the raw file bytes for on-chain compatibility (bytes32)
-      const fileBuffer = await file.arrayBuffer();
-      const fileBytes = new Uint8Array(fileBuffer);
-      const digest = ethers.keccak256(fileBytes);
+      const allBytes = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const buf of buffers) {
+        allBytes.set(buf, offset);
+        offset += buf.length;
+      }
+
+      const digest = ethers.keccak256(allBytes);
 
       const contract = getAgriCredXContract(signer);
       const tx = await contract.uploadDocumentation(id, digest);
@@ -428,12 +441,30 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
     }
   };
 
-  const handleVerifyDocument = async (id: string, chainDigest: string, file: File) => {
+  const handleVerifyDocument = async (id: string, chainDigest: string, files: FileList) => {
     try {
+      if (files.length !== 3) {
+        alert("Please select exactly 3 documents for verification.");
+        return;
+      }
       setVerifyingId(id);
-      const fileBuffer = await file.arrayBuffer();
-      const fileBytes = new Uint8Array(fileBuffer);
-      const computedHash = ethers.keccak256(fileBytes);
+      
+      const fileArray = Array.from(files).sort((a, b) => a.name.localeCompare(b.name));
+      let totalLength = 0;
+      const buffers = await Promise.all(fileArray.map(async f => {
+        const buf = new Uint8Array(await f.arrayBuffer());
+        totalLength += buf.length;
+        return buf;
+      }));
+
+      const allBytes = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const buf of buffers) {
+        allBytes.set(buf, offset);
+        offset += buf.length;
+      }
+
+      const computedHash = ethers.keccak256(allBytes);
 
       const match = computedHash.toLowerCase() === chainDigest.toLowerCase();
       setVerifyResult({ id, match, fileHash: computedHash, chainHash: chainDigest });
@@ -467,7 +498,18 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
               const statusInfo = STATUS_MAP[r.status] || STATUS_MAP['UNKNOWN'];
               return (
                 <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="px-4 py-3 font-medium text-slate-900">{r.invoice_id}</td>
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-slate-900">{r.invoice_id}</p>
+                    {(() => {
+                      const addr = r.on_chain_id ? localStorage.getItem(`deliveryAddress_${r.on_chain_id}`) : null;
+                      if (addr) return (
+                        <div className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded text-[10px] leading-tight text-slate-600">
+                          <strong>Delivery Address:</strong><br/>{addr}
+                        </div>
+                      );
+                      return null;
+                    })()}
+                  </td>
                   <td className="px-4 py-3 font-mono">{r.amount} {r.currency}</td>
                   <td className="px-4 py-3">{new Date(r.due_date).toLocaleDateString()}</td>
                   <td className="px-4 py-3">
@@ -486,11 +528,12 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
                           {isUploading === r.on_chain_id ? 'Hashing & Anchoring...' : 'Upload Docs & Hash'}
                           <input 
                             type="file" 
+                            multiple
                             className="hidden"
                             accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
                             onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleUploadDocs(r.on_chain_id, file);
+                              const files = e.target.files;
+                              if (files && files.length > 0) handleUploadDocs(r.on_chain_id, files);
                               e.target.value = ''; // reset input
                             }}
                           />
@@ -507,11 +550,12 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
                           {verifyingId === r.on_chain_id ? 'Verifying...' : 'Verify Doc Hash'}
                           <input 
                             type="file" 
+                            multiple
                             className="hidden"
                             accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
                             onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleVerifyDocument(r.on_chain_id, r.attestation_digest, file);
+                              const files = e.target.files;
+                              if (files && files.length > 0) handleVerifyDocument(r.on_chain_id, r.attestation_digest, files);
                               e.target.value = '';
                             }}
                           />
@@ -538,7 +582,7 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
                       {r.on_chain_id && r.statusNum >= 2 && (
                         <button 
                           onClick={() => {
-                            const baseUrl = window.location.origin;
+                            const baseUrl = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
                             const url = `${baseUrl}/certificate/${r.on_chain_id}`;
                             window.open(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`, '_blank', 'width=400,height=400');
                             // Also open the actual certificate in a new tab

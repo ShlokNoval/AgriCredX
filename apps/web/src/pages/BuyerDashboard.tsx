@@ -460,11 +460,12 @@ export default function BuyerDashboard() {
                           {verifyingDoc ? 'Verifying...' : 'Upload & Verify Document'}
                           <input 
                             type="file" 
+                            multiple
                             className="hidden"
                             accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
                             onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleVerifyDocument(file);
+                              const files = e.target.files;
+                              if (files && files.length > 0) handleVerifyDocument(files);
                               e.target.value = '';
                             }}
                           />
@@ -472,7 +473,7 @@ export default function BuyerDashboard() {
                         
                         <button 
                           onClick={() => {
-                            const baseUrl = window.location.origin;
+                            const baseUrl = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
                             const url = `${baseUrl}/certificate/${activeReceivable.id}`;
                             window.open(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`, '_blank', 'width=400,height=400');
                             window.open(`/certificate/${activeReceivable.id}`, '_blank');
