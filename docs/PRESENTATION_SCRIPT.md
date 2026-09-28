@@ -9,7 +9,7 @@ This updated workflow reflects the **"Buyer-First" (Procurement)** model. The Bu
 1. Ensure your **local blockchain** is running:
    - Open a terminal → `cd contracts` → `npx hardhat node`
 2. Ensure the **Smart Contract is deployed**:
-   - Open a second terminal → `cd contracts` → `npx hardhat run scripts/deploy.ts --network localhost`
+   - Open a second terminal → `cd contracts` → `npx hardhat run scripts/deploy.ts --network mst_testnet`
 3. Ensure the **Frontend** is running:
    - Open a third terminal → `npm run dev --workspace=apps/web`
 4. Ensure **Ngrok** is running:
