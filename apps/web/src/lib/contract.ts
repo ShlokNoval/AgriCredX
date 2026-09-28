@@ -3,7 +3,7 @@ import AgriCredXArtifact from './AgriCredX.json';
 
 // Get contract address from environment variable (Vite injects VITE_ prefixed vars)
 // In a real deployed app, this comes from the `.env` file generated during deploy.
-export const CONTRACT_ADDRESS = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
+export const CONTRACT_ADDRESS = '0x0165878A594ca255338adfa4d48449f69242Eb8F';
 
 export const AgriCredXABI = AgriCredXArtifact.abi;
 
@@ -15,7 +15,12 @@ const LOCAL_RPC = import.meta.env.VITE_LOCAL_RPC_URL || '/rpc';
  * This avoids BridgeKey routing reads to MST Testnet where the contract doesn't exist.
  */
 export function getReadOnlyProvider(): ethers.JsonRpcProvider {
-  return new ethers.JsonRpcProvider(LOCAL_RPC);
+  let rpcUrl = LOCAL_RPC;
+  // ethers.js requires an absolute URL, so if it's relative like '/rpc', prepend the origin
+  if (rpcUrl.startsWith('/')) {
+    rpcUrl = `${window.location.origin}${rpcUrl}`;
+  }
+  return new ethers.JsonRpcProvider(rpcUrl);
 }
 
 /**

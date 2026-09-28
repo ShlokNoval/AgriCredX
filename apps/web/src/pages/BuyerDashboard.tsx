@@ -86,7 +86,7 @@ export default function BuyerDashboard() {
     }
   };
 
-  const statusMap = ["CREATED", "DELIVERED", "VERIFIED", "BUYER_ACCEPTED", "ATTESTED", "FINANCEABLE", "FUNDED", "OUTSTANDING", "REPAID", "CLOSED", "DISPUTED"];
+  const statusMap = ["CREATED", "PACKED", "IN_TRANSIT", "DELIVERED", "VERIFIED", "BUYER_ACCEPTED", "ATTESTED", "FINANCEABLE", "FUNDED", "OUTSTANDING", "REPAID", "CLOSED", "DISPUTED"];
 
   return (
     <div className="space-y-8 animate-fade-in">

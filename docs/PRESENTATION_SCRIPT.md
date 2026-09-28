@@ -67,78 +67,67 @@ This updated workflow reflects the **"Buyer-First" (Procurement)** model. The Bu
 
 ---
 
-## 🎬 Phase 2: The Supplier (Fulfilling the Order & Tokenization)
+## 🎬 Phase 2: The Supplier (Quotation, AI Document Processing & Tokenization)
 
-**Goal:** Show the Supplier selecting the RFP and minting the asset on-chain.
+**Goal:** Show the Supplier fulfilling the RFP, uploading documents, AI extracting to JSON, hash generation, and on-chain minting.
 
 1. **Action:** From Homepage → Click **Supplier Portal**.
 2. **Action:** Log in with `supplier@demo.agricredx.com` / `AgriCredX2026Demo!`.
-3. **Talking Point:** *"The supplier logs in and sees the Open Buyer Requirements in their Marketplace feed — posted by different buyers."*
-4. **Action:** Find the requirement you just posted (e.g. "Global Agri Corp — 500 MT Premium Wheat — 1 MSTC") and click **"Fulfill Order"**.
-5. **What Happens Automatically:**
-   - The form scrolls down and **auto-populates ALL fields**:
-     - **Invoice ID** → Generated uniquely from the requirement (e.g. `INV-REQ-34053`)
-     - **Buyer Wallet Address** → Filled from the buyer's on-chain address
-     - **Amount (MSTC)** → Filled from the requirement's budget
-     - **Due Date** → Auto-calculated from the delivery date (days from today)
-   - An alert summarizes the selected order details.
-6. **Talking Point:** *"Every field is auto-populated from the buyer's requirement. The supplier doesn't need to type anything — reducing errors and ensuring data integrity."*
+3. **Talking Point:** *"The supplier contacts the buyer and sees the Open Buyer Requirements in their Marketplace feed. They choose to accept the PO."*
+4. **Action:** Click **"Fulfill Order"** on the buyer's requirement.
+5. **What Happens:** The form auto-populates the Invoice ID, Buyer Wallet Address, Amount, and Due Date.
+6. **Explanation (AI & Document Hashing):** *"At this stage, the supplier uploads their documents (like the Invoice and GRN). Behind the scenes, our Grok AI engine parses these documents, converts them into a structured JSON schema, and compares them. It then generates a unique cryptographic Hash Key. This entire process is transparently recorded on the TestNet."*
 7. **Action:** Click **"Create Receivable"**.
-8. **Behind the Scenes:** *"The frontend calls `createReceivable()` on the Smart Contract on the Hardhat blockchain. It mints an ERC-721 NFT Certificate, stores the invoice hash, amount, buyer address, and due date immutably on-chain."*
-9. **Proof:** A green box shows the **Transaction Hash** and a **Read-back from Blockchain** section:
-   - On-chain ID (e.g. `#1`), Invoice ID, Amount, Buyer address, Status: `CREATED`
+8. **Behind the Scenes:** *"This creates the receivable on-chain. The digital attestation pipeline mints the NFT and securely stores the generated Hash Keys on the blockchain."*
 
 ---
 
-## 🎬 Phase 3: Physical Logistics (The QR Code)
+## 🎬 Phase 3: Buyer Acceptance & Escrow Funding
 
-**Goal:** Show the physical-to-digital bridging.
+**Goal:** Show the Buyer accepting the quotation, verifying their MSTC balance, and funding the smart contract Escrow.
 
-1. **Action:** Scroll down to **"Your Active Receivables"** table. Click **"Refresh Data"** if needed. The receivable appears.
-2. **Action:** Click the **"Print QR"** button on that row.
-3. **Talking Point:** *"The physical goods are loaded onto a truck. We generate this QR code and attach it to the shipment. This QR encodes the receivable's on-chain ID and its cryptographic hash."*
-4. **Action:** A new window opens with the QR code image.
-5. **Action:** Scan the QR code with your mobile phone (routes through Ngrok).
-6. **Action:** On your phone, click **"Confirm Delivery"**.
-7. **Behind the Scenes:** *"The driver's scan calls `markDelivered()` on the smart contract, updating state from CREATED → DELIVERED. The physical asset is now cryptographically synced with the digital blockchain."*
+1. **Action:** Go back to the **Buyer Portal** tab.
+2. **Action:** In the **"Lookup Receivable"** section, type the newly created on-chain ID (e.g. `1`) and click **"Fetch Details"**.
+3. **Talking Point:** *"The Buyer reviews the supplier's quotation and the AI-generated Hash Keys. Because the Buyer already has enough MSTC tokens (verified previously), they can proceed to accept."*
+4. **Action:** Click **"Accept"** (BUYER_ACCEPTED).
+5. **Behind the Scenes:** *"If the buyer accepts it, the payment gets directly transferred using the smart contract's Escrow. The tokens are securely locked on-chain."*
 
 ---
 
-## 🎬 Phase 4: Buyer Acceptance & Escrow Settlement
+## 🎬 Phase 4: Physical Logistics (Authorized Delivery Scan)
 
-**Goal:** Close the loop and settle the transaction via on-chain Escrow.
+**Goal:** Show the multi-phase physical delivery, executed strictly by authorized warehouse personnel.
 
-1. **Action:** Go back to the **Buyer Portal** tab. Refresh the page.
-2. **Action:** In the **"Lookup Receivable"** section, type the on-chain ID (e.g. `1`) and click **"Fetch Details"**.
-3. **What Shows:** The Receivable Action Center displays on-chain data:
-   - Invoice ID, Amount, Buyer address, Current Status
-4. **Talking Point:** *"The Buyer sees the goods arrived and the blockchain confirms state is DELIVERED."*
-5. **Action:** Click **"Accept"** (the accept button for BUYER_ACCEPTED).
-6. **Behind the Scenes:** *"This calls `buyerAccept()` on the Smart Contract. Because the buyer proved they had sufficient MSTC upfront, this finalizes the Escrow. No middleman, no bank, no financier. Complete trustless B2B automation."*
-7. **Proof:** Status updates to `BUYER_ACCEPTED`. Transaction hash is displayed.
+1. **Action:** On the **Supplier Portal**, locate the active receivable and click **"Print QR"**.
+2. **Action:** Scan the QR code with your mobile phone (routes through Ngrok).
+3. **Talking Point:** *"We make sure that the scan is only done by the authorized person — the delivery/warehouse personnel. They don't need a complex Web3 wallet, just a secure 4-digit PIN to authorize the transaction on the blockchain."*
+4. **Action (Mobile):** On your phone, select **"📦 Packed & Ready"**, enter PIN `1234`, and click **Update Status**. 
+5. **Action (Mobile):** Repeat, selecting **"🚚 In Transit"**, then finally **"✅ Delivered to Buyer"**.
+6. **Behind the Scenes:** *"As the authorized person changes the phase of the delivery, the on-chain status is updated in real-time. Once it is successfully marked as 'Delivered', the Smart Contract Escrow automatically releases the payments to the Supplier."*
 
 ---
 
 ## 🎬 Phase 5: The Fraud Catch (Tamper Demo)
 
-**Goal:** Prove the system is un-hackable.
+**Goal:** Prove the digital attestation pipeline and hash comparison.
 
-1. **Action:** Click **"Judge's Tamper Demo"** in the top navigation bar (or navigate to `/tamper`).
-2. **Talking Point:** *"What if a supplier tries to doctor an invoice after fulfilling the order?"*
-3. **Action:** Click **"Run AI Verification"** under **Scenario A (Authentic)** → Green: `HASH MATCH ✓`.
-4. **Action:** Click **"Run AI Verification"** under **Scenario B (Doctored)** → Red: `HASH MISMATCH DETECTED ✗`.
-5. **Explanation:** *"If even a single pixel is altered in the invoice, the SHA-256 hash mismatches the immutable blockchain hash. Fraud is mathematically impossible."*
+1. **Action:** Click **"Judge's Tamper Demo"** in the top navigation bar.
+2. **Talking Point:** *"Let me show you exactly how the JSON schema extraction and hash generation works."*
+3. **Action:** Run Scenario A (Authentic) → Green: `HASH MATCH ✓`.
+4. **Action:** Run Scenario B (Doctored) → Red: `HASH MISMATCH DETECTED ✗`.
+5. **Explanation:** *"If the supplier uploads a doctored document, the AI extracts the JSON, generates a new hash, and compares it to the original on-chain Hash Key. It mismatches, proving our pipeline is completely transparent and tamper-proof."*
 
 ---
 
-## 🎬 Phase 6: The Secret Governance (Admin)
+## 🎬 Phase 6: Transparency via MST TestNet Scan
 
-**Goal:** Show the secure architectural routing.
+**Goal:** Prove the entire process happened on a public blockchain.
 
-1. **Action:** Log out and type admin credentials: `admin@demo.agricredx.com` / `AgriCredX2026Demo!`.
-2. **Talking Point:** *"We don't have a public admin login page for security. If an admin logs into any portal, the system's Row Level Security detects their role and routes them to the Protocol Admin Dashboard."*
-3. **Action:** Show the **Protocol Admin Dashboard** (red-themed).
-4. **Conclusion:** *"AgriCredX is fully functional, blockchain-native, AI-powered, and ready for deployment. Every transaction is cryptographically signed, every document is AI-verified, and every state change is immutably recorded on-chain. Thank you."*
+1. **Action:** Open a new tab and go to the official MST Block Explorer: `https://testnet.mstscan.com`.
+2. **Talking Point:** *"To prove this is a transparent process, we can view all these transactions on the official MST TestNet MST Scan."*
+3. **Action:** Copy the transaction hash you received from the Supplier Dashboard or Buyer Dashboard and paste it into the explorer search bar.
+4. **Explanation:** *"Here is the undeniable, immutable proof of the transaction on the MST TestNet. The digital attestation, the AI hash keys, the delivery phases, and the escrow settlement are all public and verifiable."*
+5. **Conclusion:** *"AgriCredX is a complete, end-to-end digital attestation pipeline on-chain. Thank you."*
 
 ---
 

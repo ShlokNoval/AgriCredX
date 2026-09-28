@@ -22,7 +22,9 @@ contract AgriCredX is ERC721URIStorage, Ownable {
      */
     enum ReceivableStatus {
         CREATED,
-        DELIVERED,       // Added per judge feedback
+        PACKED,          // Added for logistics phase
+        IN_TRANSIT,      // Added for logistics phase
+        DELIVERED,
         VERIFIED,
         BUYER_ACCEPTED,
         ATTESTED,
@@ -127,17 +129,26 @@ contract AgriCredX is ERC721URIStorage, Ownable {
     }
 
     /**
-     * @notice Step 1.5: Supplier marks order as delivered on-chain
+     * @notice Step 1.5: Supplier/Logistics marks order tracking status on-chain
      */
-    function markDelivered(uint256 _id) external {
+    function updateLogisticsStatus(uint256 _id, ReceivableStatus _newStatus) external {
         Receivable storage r = receivables[_id];
-        require(msg.sender == r.supplier, "Not the supplier");
-        require(r.status == ReceivableStatus.CREATED || r.status == ReceivableStatus.DISPUTED, "Invalid state transition");
+        // Allow transition as long as it is moving forward in logistics
+        require(r.status == ReceivableStatus.CREATED || 
+                r.status == ReceivableStatus.PACKED || 
+                r.status == ReceivableStatus.IN_TRANSIT || 
+                r.status == ReceivableStatus.DISPUTED, "Invalid state transition");
         
+        require(_newStatus == ReceivableStatus.PACKED || 
+                _newStatus == ReceivableStatus.IN_TRANSIT || 
+                _newStatus == ReceivableStatus.DELIVERED, "Not a logistics status");
+
         ReceivableStatus oldStatus = r.status;
-        r.status = ReceivableStatus.DELIVERED;
+        r.status = _newStatus;
         
-        emit OrderDelivered(_id);
+        if (_newStatus == ReceivableStatus.DELIVERED) {
+            emit OrderDelivered(_id);
+        }
         emit StatusUpdated(_id, oldStatus, r.status);
     }
 

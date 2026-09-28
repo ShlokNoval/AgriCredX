@@ -10,11 +10,12 @@ export default function DeliveryScanner() {
   const hashParam = searchParams.get('hash');
   
   const [pin, setPin] = useState('');
+  const [logisticsPhase, setLogisticsPhase] = useState('1'); // Default to PACKED
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
   const [error, setError] = useState('');
 
-  const handleMarkDelivered = async () => {
+  const handleUpdateStatus = async () => {
     if (!id || pin.length < 4) return;
     setIsSubmitting(true);
     setStatus('IDLE');
@@ -23,15 +24,16 @@ export default function DeliveryScanner() {
     try {
       // Import ethers and get local provider
       const { ethers } = await import('ethers');
-      const { getReadOnlyProvider } = await import('../lib/contract');
+      const { getReadOnlyProvider, getAgriCredXContract } = await import('../lib/contract');
       const provider = getReadOnlyProvider();
       
       // We use the first Hardhat account to execute this proxy transaction
       const localSigner = await provider.getSigner(0);
       const contract = getAgriCredXContract(localSigner);
       
-      // Call the markDelivered function on the blockchain
-      const tx = await contract.markDelivered(id);
+      // Call the updateLogisticsStatus function on the blockchain
+      // 1 = PACKED, 2 = IN_TRANSIT, 3 = DELIVERED
+      const tx = await contract.updateLogisticsStatus(id, Number(logisticsPhase));
       await tx.wait();
       setStatus('SUCCESS');
     } catch (err: any) {
@@ -78,29 +80,43 @@ export default function DeliveryScanner() {
           {status === 'SUCCESS' ? (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 p-6 rounded-xl flex flex-col items-center">
               <CheckCircle size={48} className="mb-3 text-emerald-500" />
-              <p className="font-bold text-lg">Delivery Confirmed!</p>
-              <p className="text-sm mt-1 text-emerald-600">The blockchain state has been updated to DELIVERED.</p>
+              <p className="font-bold text-lg">Status Updated!</p>
+              <p className="text-sm mt-1 text-emerald-600">The blockchain state has been updated successfully.</p>
             </div>
           ) : (
-            <>
-              <div>
-                <input
-                  type="password"
-                  placeholder="Enter 4-Digit PIN"
-                  maxLength={4}
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                  className="w-full text-center text-2xl tracking-widest py-4 px-4 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-blue-500 transition-colors"
-                />
+              <div className="space-y-3 text-left">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Select New Phase</label>
+                  <select 
+                    value={logisticsPhase}
+                    onChange={(e) => setLogisticsPhase(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-blue-500 font-medium"
+                  >
+                    <option value="1">📦 Packed & Ready</option>
+                    <option value="2">🚚 In Transit</option>
+                    <option value="3">✅ Delivered to Buyer</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Warehouse PIN</label>
+                  <input
+                    type="password"
+                    placeholder="Enter 4-Digit PIN"
+                    maxLength={4}
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                    className="w-full text-center text-2xl tracking-widest py-3 px-4 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-blue-500 transition-colors"
+                  />
+                </div>
               </div>
               
               <button
-                onClick={handleMarkDelivered}
+                onClick={handleUpdateStatus}
                 disabled={isSubmitting || pin.length < 4}
-                className="w-full flex items-center justify-center py-4 px-4 border border-transparent text-lg font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center py-4 px-4 border border-transparent text-lg font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed mt-4"
               >
                 <Truck className="mr-2" size={24} />
-                {isSubmitting ? 'Confirming on Chain...' : 'Confirm Delivery'}
+                {isSubmitting ? 'Updating Chain...' : 'Update Status'}
               </button>
               {status === 'ERROR' && (
                 <p className="text-red-500 text-sm font-medium mt-2">{error}</p>

@@ -311,7 +311,7 @@ function SupplierReceivablesTable() {
             amount: ethers.formatEther(r.amount),
             currency: 'MSTC',
             due_date: new Date(Number(r.dueDate) * 1000).toISOString(),
-            status: Number(r.status) === 0 ? 'CREATED' : Number(r.status) === 1 ? 'DELIVERED' : Number(r.status) === 2 ? 'VERIFIED' : Number(r.status) === 3 ? 'BUYER_ACCEPTED' : 'UNKNOWN',
+            status: Number(r.status) === 0 ? 'CREATED' : Number(r.status) === 1 ? 'PACKED' : Number(r.status) === 2 ? 'IN_TRANSIT' : Number(r.status) === 3 ? 'DELIVERED' : Number(r.status) === 4 ? 'VERIFIED' : Number(r.status) === 5 ? 'BUYER_ACCEPTED' : 'UNKNOWN',
             on_chain_id: i.toString(),
             attestation_digest: r.attestationDigest
           });
@@ -352,7 +352,7 @@ function SupplierReceivablesTable() {
               </td>
               <td className="px-4 py-3 font-mono text-xs">{r.on_chain_id ? `#${r.on_chain_id}` : 'Pending NFT'}</td>
               <td className="px-4 py-3">
-                {r.on_chain_id && r.status === 'CREATED' && (
+                {r.on_chain_id && (r.status === 'CREATED' || r.status === 'PACKED' || r.status === 'IN_TRANSIT') && (
                   <button 
                     onClick={() => {
                       const baseUrl = "https://hosea-requisitionary-unawares.ngrok-free.dev";
