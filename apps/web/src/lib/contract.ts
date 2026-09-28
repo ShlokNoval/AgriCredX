@@ -3,7 +3,7 @@ import AgriCredXArtifact from './AgriCredX.json';
 
 // Get contract address from environment variable (Vite injects VITE_ prefixed vars)
 // In a real deployed app, this comes from the `.env` file generated during deploy.
-export const CONTRACT_ADDRESS = '0x0165878A594ca255338adfa4d48449f69242Eb8F';
+export const CONTRACT_ADDRESS = import.meta.env.VITE_AGRICREDX_CONTRACT_ADDRESS || '0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6';
 
 export const AgriCredXABI = AgriCredXArtifact.abi;
 

@@ -172,12 +172,12 @@ export default function SupplierDashboard() {
                           const nowMs = Date.now();
                           const diffDays = Math.max(1, Math.ceil((deliveryMs - nowMs) / (1000 * 60 * 60 * 24)));
                           setDueDateDays(diffDays.toString());
-                          alert(`Order for "${req.quantity} ${req.commodity}" from ${req.buyerName} selected!\n\nInvoice ID: INV-${req.id}\nAmount: ${req.amount} MSTC\nDue in: ${diffDays} days\n\nScroll down and click "Create Receivable" to mint it on-chain.`);
+                          alert(`Order for "${req.quantity} ${req.commodity}" from ${req.buyerName} selected!\n\nQuotation ID: INV-${req.id}\nAmount: ${req.amount} MSTC\nDue in: ${diffDays} days\n\nScroll down and click "Send Quotation" to propose it on-chain.`);
                           window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
                         }}
                         className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-700 transition-colors shadow-sm text-xs"
                       >
-                        Fulfill Order
+                        Send Quotation
                       </button>
                     </td>
                   </tr>
@@ -191,7 +191,7 @@ export default function SupplierDashboard() {
       {isConnected && (
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mt-6">
           <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
-            <h2 className="text-lg font-semibold text-slate-800">Create New Receivable / Fulfill Order</h2>
+            <h2 className="text-lg font-semibold text-slate-800">Send Quotation / Proposal</h2>
           </div>
           <div className="p-6">
             <form onSubmit={handleCreateReceivable} className="space-y-4 max-w-lg">
@@ -249,7 +249,7 @@ export default function SupplierDashboard() {
                 disabled={isSubmitting || !buyerAddress || !amount || !invoiceId || !dueDateDays}
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
-                {isSubmitting ? 'Confirming on Chain...' : 'Create Receivable'}
+                {isSubmitting ? 'Confirming on Chain...' : 'Send Quotation'}
               </button>
               
               {txHash && (
@@ -311,7 +311,7 @@ function SupplierReceivablesTable() {
             amount: ethers.formatEther(r.amount),
             currency: 'MSTC',
             due_date: new Date(Number(r.dueDate) * 1000).toISOString(),
-            status: Number(r.status) === 0 ? 'CREATED' : Number(r.status) === 1 ? 'PACKED' : Number(r.status) === 2 ? 'IN_TRANSIT' : Number(r.status) === 3 ? 'DELIVERED' : Number(r.status) === 4 ? 'VERIFIED' : Number(r.status) === 5 ? 'BUYER_ACCEPTED' : 'UNKNOWN',
+            status: Number(r.status) === 0 ? 'QUOTATION_SENT' : Number(r.status) === 1 ? 'BUYER_ACCEPTED' : Number(r.status) === 2 ? 'DOCUMENTATION_UPLOADED' : Number(r.status) === 3 ? 'PACKED' : Number(r.status) === 4 ? 'IN_TRANSIT' : Number(r.status) === 5 ? 'DELIVERED' : 'UNKNOWN',
             on_chain_id: i.toString(),
             attestation_digest: r.attestationDigest
           });
@@ -325,6 +325,27 @@ function SupplierReceivablesTable() {
     loadData();
   }, []);
 
+  const handleUploadDocs = async (id: string) => {
+    try {
+      const { getContract } = await import('../lib/contract');
+      const contract = await getContract();
+      
+      // Simulate Grok AI processing delay
+      alert("Simulating Grok AI Document Processing...");
+      const { ethers } = await import('ethers');
+      const dummyDigest = ethers.keccak256(ethers.toUtf8Bytes("demo_invoice_grn_" + Date.now()));
+      
+      const tx = await contract.uploadDocumentation(id, dummyDigest);
+      await tx.wait();
+      
+      alert("Documentation uploaded and hashed successfully. QR Code is now ready.");
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to upload documentation.");
+    }
+  };
+
   if (loading) return <div className="text-center py-8 text-slate-500">Loading receivables from database...</div>;
   if (receivables.length === 0) return <div className="text-center py-8 text-slate-500">No active receivables found. Create one above!</div>;
 
@@ -333,7 +354,7 @@ function SupplierReceivablesTable() {
       <table className="w-full text-left text-sm text-slate-600">
         <thead className="text-xs uppercase bg-slate-50 text-slate-700">
           <tr>
-            <th className="px-4 py-3">Invoice ID</th>
+            <th className="px-4 py-3">Quotation / Invoice</th>
             <th className="px-4 py-3">Amount</th>
             <th className="px-4 py-3">Due Date</th>
             <th className="px-4 py-3">Status</th>
@@ -352,7 +373,16 @@ function SupplierReceivablesTable() {
               </td>
               <td className="px-4 py-3 font-mono text-xs">{r.on_chain_id ? `#${r.on_chain_id}` : 'Pending NFT'}</td>
               <td className="px-4 py-3">
-                {r.on_chain_id && (r.status === 'CREATED' || r.status === 'PACKED' || r.status === 'IN_TRANSIT') && (
+                {r.on_chain_id && r.status === 'BUYER_ACCEPTED' && (
+                  <button 
+                    onClick={() => handleUploadDocs(r.on_chain_id)}
+                    className="flex items-center text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded hover:bg-emerald-200 transition-colors border border-emerald-200 font-semibold"
+                    title="Upload documentation and generate Hash Key"
+                  >
+                    Upload Docs & Hash
+                  </button>
+                )}
+                {r.on_chain_id && (r.status === 'DOCUMENTATION_UPLOADED' || r.status === 'PACKED' || r.status === 'IN_TRANSIT') && (
                   <button 
                     onClick={() => {
                       const baseUrl = "https://hosea-requisitionary-unawares.ngrok-free.dev";

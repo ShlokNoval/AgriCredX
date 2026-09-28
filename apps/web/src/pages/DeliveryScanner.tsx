@@ -84,6 +84,7 @@ export default function DeliveryScanner() {
               <p className="text-sm mt-1 text-emerald-600">The blockchain state has been updated successfully.</p>
             </div>
           ) : (
+            <>
               <div className="space-y-3 text-left">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Select New Phase</label>

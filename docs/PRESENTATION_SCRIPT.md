@@ -67,18 +67,17 @@ This updated workflow reflects the **"Buyer-First" (Procurement)** model. The Bu
 
 ---
 
-## 🎬 Phase 2: The Supplier (Quotation, AI Document Processing & Tokenization)
+## 🎬 Phase 2: The Supplier (Sending the Quotation/Proposal)
 
-**Goal:** Show the Supplier fulfilling the RFP, uploading documents, AI extracting to JSON, hash generation, and on-chain minting.
+**Goal:** Show the Supplier selecting the RFP and sending a formal quotation on-chain before uploading any sensitive documents.
 
 1. **Action:** From Homepage → Click **Supplier Portal**.
 2. **Action:** Log in with `supplier@demo.agricredx.com` / `AgriCredX2026Demo!`.
-3. **Talking Point:** *"The supplier contacts the buyer and sees the Open Buyer Requirements in their Marketplace feed. They choose to accept the PO."*
-4. **Action:** Click **"Fulfill Order"** on the buyer's requirement.
-5. **What Happens:** The form auto-populates the Invoice ID, Buyer Wallet Address, Amount, and Due Date.
-6. **Explanation (AI & Document Hashing):** *"At this stage, the supplier uploads their documents (like the Invoice and GRN). Behind the scenes, our Grok AI engine parses these documents, converts them into a structured JSON schema, and compares them. It then generates a unique cryptographic Hash Key. This entire process is transparently recorded on the TestNet."*
-7. **Action:** Click **"Create Receivable"**.
-8. **Behind the Scenes:** *"This creates the receivable on-chain. The digital attestation pipeline mints the NFT and securely stores the generated Hash Keys on the blockchain."*
+3. **Talking Point:** *"The supplier sees the Open Buyer Requirements in their Marketplace feed. They choose to submit a proposal."*
+4. **Action:** Click **"Send Quotation"** on the buyer's requirement.
+5. **What Happens:** The form auto-populates the Quotation ID, Buyer Wallet Address, Amount, and Due Date.
+6. **Action:** Click **"Send Quotation"** at the bottom of the form.
+7. **Behind the Scenes:** *"This creates an on-chain record in the `QUOTATION_SENT` state. No documents are uploaded yet, and no Escrow is funded yet. We must wait for the buyer to explicitly accept this offer."*
 
 ---
 
@@ -88,22 +87,25 @@ This updated workflow reflects the **"Buyer-First" (Procurement)** model. The Bu
 
 1. **Action:** Go back to the **Buyer Portal** tab.
 2. **Action:** In the **"Lookup Receivable"** section, type the newly created on-chain ID (e.g. `1`) and click **"Fetch Details"**.
-3. **Talking Point:** *"The Buyer reviews the supplier's quotation and the AI-generated Hash Keys. Because the Buyer already has enough MSTC tokens (verified previously), they can proceed to accept."*
+3. **Talking Point:** *"The Buyer reviews the supplier's quotation. Because the Buyer already has enough MSTC tokens (verified previously), they can proceed to accept."*
 4. **Action:** Click **"Accept"** (BUYER_ACCEPTED).
-5. **Behind the Scenes:** *"If the buyer accepts it, the payment gets directly transferred using the smart contract's Escrow. The tokens are securely locked on-chain."*
+5. **Behind the Scenes:** *"By explicitly accepting the quotation, the payment gets securely locked into the smart contract's Escrow. Only now is the supplier authorized to process the order."*
 
 ---
 
-## 🎬 Phase 4: Physical Logistics (Authorized Delivery Scan)
+## 🎬 Phase 4: AI Document Processing & Physical Logistics
 
-**Goal:** Show the multi-phase physical delivery, executed strictly by authorized warehouse personnel.
+**Goal:** Show the Supplier uploading the real documents and the multi-phase physical delivery, executed strictly by authorized warehouse personnel.
 
-1. **Action:** On the **Supplier Portal**, locate the active receivable and click **"Print QR"**.
-2. **Action:** Scan the QR code with your mobile phone (routes through Ngrok).
-3. **Talking Point:** *"We make sure that the scan is only done by the authorized person — the delivery/warehouse personnel. They don't need a complex Web3 wallet, just a secure 4-digit PIN to authorize the transaction on the blockchain."*
-4. **Action (Mobile):** On your phone, select **"📦 Packed & Ready"**, enter PIN `1234`, and click **Update Status**. 
-5. **Action (Mobile):** Repeat, selecting **"🚚 In Transit"**, then finally **"✅ Delivered to Buyer"**.
-6. **Behind the Scenes:** *"As the authorized person changes the phase of the delivery, the on-chain status is updated in real-time. Once it is successfully marked as 'Delivered', the Smart Contract Escrow automatically releases the payments to the Supplier."*
+1. **Action:** Go back to the **Supplier Portal**, locate the active receivable (now in `BUYER_ACCEPTED` status).
+2. **Action:** Click the **"Upload Docs & Hash"** button.
+3. **Explanation (AI & Document Hashing):** *"Now that the buyer has committed funds, the supplier uploads their documents (like the Invoice and GRN). Behind the scenes, our Grok AI engine parses these documents, converts them into a structured JSON schema, and compares them. It generates a unique cryptographic Hash Key on-chain."*
+4. **Action:** Once the page reloads, click **"Print QR"**.
+5. **Action:** Scan the QR code with your mobile phone (routes through Ngrok).
+6. **Talking Point:** *"We make sure that the logistics scan is only done by the authorized warehouse personnel. They don't need a complex Web3 wallet, just a secure 4-digit PIN."*
+7. **Action (Mobile):** On your phone, select **"📦 Packed & Ready"**, enter PIN `1234`, and click **Update Status**. 
+8. **Action (Mobile):** Repeat, selecting **"🚚 In Transit"**, then finally **"✅ Delivered to Buyer"**.
+9. **Behind the Scenes:** *"As the authorized person changes the phase of the delivery, the on-chain status is updated in real-time. Once it is successfully marked as 'Delivered', the Smart Contract Escrow automatically releases the payments to the Supplier."*
 
 ---
 

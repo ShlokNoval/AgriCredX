@@ -21,19 +21,20 @@ contract AgriCredX is ERC721URIStorage, Ownable {
      * → FUNDED → OUTSTANDING → REPAID → CLOSED
      */
     enum ReceivableStatus {
-        CREATED,
-        PACKED,          // Added for logistics phase
-        IN_TRANSIT,      // Added for logistics phase
-        DELIVERED,
-        VERIFIED,
-        BUYER_ACCEPTED,
-        ATTESTED,
-        FINANCEABLE,
-        FUNDED,
-        OUTSTANDING,
-        REPAID,
-        CLOSED,
-        DISPUTED
+        QUOTATION_SENT,          // 0: Supplier sends proposal
+        BUYER_ACCEPTED,          // 1: Buyer accepts proposal & locks funds
+        DOCUMENTATION_UPLOADED,  // 2: Supplier uploads invoice/docs, AI hashes
+        PACKED,                  // 3: Logistics phase
+        IN_TRANSIT,              // 4: Logistics phase
+        DELIVERED,               // 5: Logistics phase -> Escrow payout
+        VERIFIED,                // 6: (Legacy/Optional) 
+        ATTESTED,                // 7: (Legacy/Optional)
+        FINANCEABLE,             // 8: (Legacy/Optional)
+        FUNDED,                  // 9: (Legacy/Optional)
+        OUTSTANDING,             // 10: (Legacy/Optional)
+        REPAID,                  // 11: (Legacy/Optional)
+        CLOSED,                  // 12: End state
+        DISPUTED                 // 13: Dispute state
     }
 
     struct Receivable {
@@ -98,7 +99,7 @@ contract AgriCredX is ERC721URIStorage, Ownable {
     // ============================================================
 
     /**
-     * @notice Step 1: Supplier creates a receivable & mints an NFT certificate
+     * @notice Step 1: Supplier proposes a quotation to the Buyer
      */
     function createReceivable(string memory _invoiceId, address _buyer, uint256 _amount, uint256 _dueDate, string memory _tokenURI) external returns (uint256) {
         require(_buyer != address(0), "Invalid buyer address");
@@ -114,7 +115,7 @@ contract AgriCredX is ERC721URIStorage, Ownable {
             buyer: _buyer,
             amount: _amount,
             dueDate: _dueDate,
-            status: ReceivableStatus.CREATED,
+            status: ReceivableStatus.QUOTATION_SENT,
             attestationDigest: bytes32(0),
             financier: payable(address(0)),
             fundedAmount: 0
@@ -129,12 +130,41 @@ contract AgriCredX is ERC721URIStorage, Ownable {
     }
 
     /**
-     * @notice Step 1.5: Supplier/Logistics marks order tracking status on-chain
+     * @notice Step 2: Buyer reviews quotation, explicitly accepts, and locks funds in Escrow
+     */
+    function buyerAccept(uint256 _id) external payable {
+        Receivable storage r = receivables[_id];
+        require(msg.sender == r.buyer, "Not authorized buyer");
+        require(r.status == ReceivableStatus.QUOTATION_SENT, "Must be QUOTATION_SENT first");
+        // In a real implementation with MSTC ERC20, we would transferFrom here.
+        // For the native prototype, we'll just mock the requirement or accept msg.value if we want native escrow.
+
+        r.status = ReceivableStatus.BUYER_ACCEPTED;
+        emit StatusUpdated(_id, ReceivableStatus.QUOTATION_SENT, r.status);
+    }
+
+    /**
+     * @notice Step 3: Supplier uploads documentation (Invoice/GRN) after buyer accepts. AI Hashes generated.
+     */
+    function uploadDocumentation(uint256 _id, bytes32 _digest) external {
+        Receivable storage r = receivables[_id];
+        require(msg.sender == r.supplier || msg.sender == verifierNode, "Not authorized");
+        require(r.status == ReceivableStatus.BUYER_ACCEPTED, "Must be BUYER_ACCEPTED first");
+        
+        r.attestationDigest = _digest;
+        r.status = ReceivableStatus.DOCUMENTATION_UPLOADED;
+        
+        emit AttestationAnchored(_id, _digest);
+        emit StatusUpdated(_id, ReceivableStatus.BUYER_ACCEPTED, r.status);
+    }
+
+    /**
+     * @notice Step 4: Supplier/Logistics marks order tracking status on-chain. Escrow releases on DELIVERED.
      */
     function updateLogisticsStatus(uint256 _id, ReceivableStatus _newStatus) external {
         Receivable storage r = receivables[_id];
-        // Allow transition as long as it is moving forward in logistics
-        require(r.status == ReceivableStatus.CREATED || 
+        
+        require(r.status == ReceivableStatus.DOCUMENTATION_UPLOADED || 
                 r.status == ReceivableStatus.PACKED || 
                 r.status == ReceivableStatus.IN_TRANSIT || 
                 r.status == ReceivableStatus.DISPUTED, "Invalid state transition");
@@ -148,59 +178,9 @@ contract AgriCredX is ERC721URIStorage, Ownable {
         
         if (_newStatus == ReceivableStatus.DELIVERED) {
             emit OrderDelivered(_id);
+            // In a production system, Escrow pays Supplier here via transfer() of ERC20 MSTC.
         }
         emit StatusUpdated(_id, oldStatus, r.status);
-    }
-
-    /**
-     * @notice Step 2: Off-chain AI verifies and sets state to VERIFIED
-     */
-    function setVerified(uint256 _id) external onlyVerifier {
-        Receivable storage r = receivables[_id];
-        require(r.status == ReceivableStatus.DELIVERED || r.status == ReceivableStatus.CREATED, "Must be DELIVERED or CREATED");
-        
-        ReceivableStatus oldStatus = r.status;
-        r.status = ReceivableStatus.VERIFIED;
-        
-        emit StatusUpdated(_id, oldStatus, r.status);
-    }
-
-    /**
-     * @notice Step 3: Buyer reviews and explicitly accepts via wallet signature
-     */
-    function buyerAccept(uint256 _id) external {
-        Receivable storage r = receivables[_id];
-        require(msg.sender == r.buyer, "Not authorized buyer");
-        require(r.status == ReceivableStatus.VERIFIED, "Must be VERIFIED first");
-
-        r.status = ReceivableStatus.BUYER_ACCEPTED;
-        emit StatusUpdated(_id, ReceivableStatus.VERIFIED, r.status);
-    }
-
-    /**
-     * @notice Step 4: Attestation is anchored deterministically
-     */
-    function anchorAttestation(uint256 _id, bytes32 _digest) external onlyVerifier {
-        Receivable storage r = receivables[_id];
-        require(r.status == ReceivableStatus.BUYER_ACCEPTED, "Must be BUYER_ACCEPTED first");
-        require(_digest != bytes32(0), "Invalid digest");
-
-        r.attestationDigest = _digest;
-        r.status = ReceivableStatus.ATTESTED;
-
-        emit AttestationAnchored(_id, _digest);
-        emit StatusUpdated(_id, ReceivableStatus.BUYER_ACCEPTED, r.status);
-    }
-
-    /**
-     * @notice Step 5: System marks as financeable once all conditions are met
-     */
-    function makeFinanceable(uint256 _id) external onlyVerifier {
-        Receivable storage r = receivables[_id];
-        require(r.status == ReceivableStatus.ATTESTED, "Must be ATTESTED first");
-
-        r.status = ReceivableStatus.FINANCEABLE;
-        emit StatusUpdated(_id, ReceivableStatus.ATTESTED, r.status);
     }
 
     /**

@@ -52,7 +52,22 @@ export default function FinancierDashboard() {
     }
   };
 
-  const statusMap = ["CREATED", "PACKED", "IN_TRANSIT", "DELIVERED", "VERIFIED", "BUYER_ACCEPTED", "ATTESTED", "FINANCEABLE", "FUNDED", "OUTSTANDING", "REPAID", "CLOSED", "DISPUTED"];
+  const statusMap = [
+    "QUOTATION_SENT", 
+    "BUYER_ACCEPTED", 
+    "DOCUMENTATION_UPLOADED", 
+    "PACKED", 
+    "IN_TRANSIT", 
+    "DELIVERED", 
+    "VERIFIED", 
+    "ATTESTED", 
+    "FINANCEABLE", 
+    "FUNDED", 
+    "OUTSTANDING", 
+    "REPAID", 
+    "CLOSED", 
+    "DISPUTED"
+  ];
 
   return (
     <div className="space-y-8 animate-fade-in">

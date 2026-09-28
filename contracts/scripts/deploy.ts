@@ -21,9 +21,23 @@ async function main() {
   console.log("Deployment Transaction Hash:", txHash);
 
   // Write deployment config for frontend
-  const envContent = `VITE_AGRICREDX_CONTRACT_ADDRESS=${contractAddress}\n`;
-  fs.writeFileSync(path.join(__dirname, "../../apps/web/.env.local"), envContent);
-  console.log("Wrote frontend config to apps/web/.env.local");
+  const envPath = path.join(__dirname, "../../apps/web/.env.local");
+  let envContent = "";
+  
+  if (fs.existsSync(envPath)) {
+    envContent = fs.readFileSync(envPath, 'utf8');
+    // Replace if exists, otherwise append
+    if (envContent.includes('VITE_AGRICREDX_CONTRACT_ADDRESS=')) {
+      envContent = envContent.replace(/VITE_AGRICREDX_CONTRACT_ADDRESS=.*/, `VITE_AGRICREDX_CONTRACT_ADDRESS=${contractAddress}`);
+    } else {
+      envContent += `\nVITE_AGRICREDX_CONTRACT_ADDRESS=${contractAddress}\n`;
+    }
+  } else {
+    envContent = `VITE_AGRICREDX_CONTRACT_ADDRESS=${contractAddress}\n`;
+  }
+  
+  fs.writeFileSync(envPath, envContent);
+  console.log("Updated frontend config in apps/web/.env.local");
 }
 
 main().catch((error) => {
