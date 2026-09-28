@@ -22,6 +22,8 @@ export default function BuyerDashboard() {
   const [openRequestsCount, setOpenRequestsCount] = useState(0);
   const [showPostedRequirements, setShowPostedRequirements] = useState(false);
   const [postedRequirements, setPostedRequirements] = useState<any[]>([]);
+  const [pendingReviewCount, setPendingReviewCount] = useState<number>(0);
+  const [totalSettled, setTotalSettled] = useState<number>(0);
 
   useEffect(() => {
     const reqs = JSON.parse(localStorage.getItem('agricredx_buyer_requests') || '[]');
@@ -42,6 +44,29 @@ export default function BuyerDashboard() {
       }
     };
     fetchBalance();
+
+    // Fetch Dynamic Stats from Smart Contract
+    const fetchStats = async () => {
+      try {
+        const contract = getReadOnlyContract();
+        const count = await contract.receivableCount();
+        let pending = 0;
+        let settled = 0;
+        for (let i = 1; i <= Number(count); i++) {
+          const r = await contract.receivables(i);
+          const status = Number(r.status);
+          if (status === 0) pending++; // QUOTATION_SENT
+          if (status === 5) { // DELIVERED (Escrow paid)
+            settled += Number(ethers.formatEther(r.amount));
+          }
+        }
+        setPendingReviewCount(pending);
+        setTotalSettled(settled);
+      } catch (err) {
+        console.error("Failed to fetch dynamic stats", err);
+      }
+    };
+    fetchStats();
   }, [showRfpModal, signer, address]);
 
   const fetchReceivable = async () => {
@@ -135,12 +160,14 @@ export default function BuyerDashboard() {
               <p className="text-xs text-emerald-600 mt-1">Click to view your posted RFPs</p>
             </div>
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-              <h3 className="text-sm font-semibold text-slate-500 uppercase">Pending Review</h3>
-              <p className="text-3xl font-extrabold text-amber-600 mt-2">Active</p>
+              <h3 className="text-sm font-semibold text-slate-500 uppercase">Pending Quotations</h3>
+              <p className="text-3xl font-extrabold text-amber-600 mt-2">{pendingReviewCount}</p>
+              <p className="text-xs text-amber-600 mt-1">Quotations awaiting your acceptance</p>
             </div>
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-              <h3 className="text-sm font-semibold text-slate-500 uppercase">Total Settled</h3>
-              <p className="text-3xl font-extrabold text-emerald-600 mt-2">₹12.4M</p>
+              <h3 className="text-sm font-semibold text-slate-500 uppercase">Total Settled (Escrow)</h3>
+              <p className="text-3xl font-extrabold text-emerald-600 mt-2">{totalSettled} MSTC</p>
+              <p className="text-xs text-emerald-600 mt-1">Value of delivered orders</p>
             </div>
           </div>
           

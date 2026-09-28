@@ -16,8 +16,37 @@ export default function SupplierDashboard() {
   // Marketplace State
   const [openRequests, setOpenRequests] = useState<any[]>([]);
 
+  // Stats State
+  const [activeQuotations, setActiveQuotations] = useState(0);
+  const [activeDeliveries, setActiveDeliveries] = useState(0);
+  const [totalEarned, setTotalEarned] = useState(0);
+
   React.useEffect(() => {
     setOpenRequests(JSON.parse(localStorage.getItem('agricredx_buyer_requests') || '[]').filter((r: any) => r.status === 'OPEN'));
+    
+    // Fetch Dynamic Stats from Smart Contract
+    const fetchStats = async () => {
+      try {
+        const contract = getReadOnlyContract();
+        const count = await contract.receivableCount();
+        let quotations = 0;
+        let deliveries = 0;
+        let earned = 0;
+        for (let i = 1; i <= Number(count); i++) {
+          const r = await contract.receivables(i);
+          const status = Number(r.status);
+          if (status === 0) quotations++; // QUOTATION_SENT
+          if (status === 2 || status === 3 || status === 4) deliveries++; // DOCS UPLOADED, PACKED, IN_TRANSIT
+          if (status === 5) earned += Number(ethers.formatEther(r.amount)); // DELIVERED
+        }
+        setActiveQuotations(quotations);
+        setActiveDeliveries(deliveries);
+        setTotalEarned(earned);
+      } catch (err) {
+        console.error("Failed to fetch dynamic stats", err);
+      }
+    };
+    fetchStats();
   }, []);
   
   const handleCreateReceivable = async (e: React.FormEvent) => {
@@ -109,8 +138,8 @@ export default function SupplierDashboard() {
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-500">Total Financed (YTD)</p>
-              <p className="text-2xl font-bold text-slate-900">₹14.2M</p>
+              <p className="text-sm font-medium text-slate-500">Active Quotations</p>
+              <p className="text-2xl font-bold text-slate-900">{activeQuotations}</p>
             </div>
           </div>
           <div className="bg-white border border-slate-200 rounded-xl p-5 flex items-center shadow-sm">
@@ -118,8 +147,8 @@ export default function SupplierDashboard() {
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-500">Active Receivables</p>
-              <p className="text-2xl font-bold text-slate-900">3</p>
+              <p className="text-sm font-medium text-slate-500">Active Deliveries</p>
+              <p className="text-2xl font-bold text-slate-900">{activeDeliveries}</p>
             </div>
           </div>
           <div className="bg-white border border-slate-200 rounded-xl p-5 flex items-center shadow-sm">
@@ -127,8 +156,8 @@ export default function SupplierDashboard() {
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-500">Avg Funding Time</p>
-              <p className="text-2xl font-bold text-slate-900">2.4 Hrs</p>
+              <p className="text-sm font-medium text-slate-500">Total Earned</p>
+              <p className="text-2xl font-bold text-slate-900">{totalEarned} MSTC</p>
             </div>
           </div>
         </div>
