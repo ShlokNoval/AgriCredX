@@ -18,9 +18,10 @@ describe("AgriCredX Lifecycle", function () {
 
   it("should enforce the canonical lifecycle: CREATED -> VERIFIED -> BUYER_ACCEPTED -> ATTESTED -> FINANCEABLE -> OUTSTANDING -> CLOSED", async function () {
     // 1. CREATED
-    const offchainId = "uuid-1234";
+    const invoiceId = "uuid-1234";
     const amount = ethers.parseEther("1000");
-    await agricredx.connect(supplier).createReceivable(offchainId, buyer.address, amount);
+    const dueDate = Math.floor(Date.now() / 1000) + 60 * 24 * 60 * 60; // 60 days
+    await agricredx.connect(supplier).createReceivable(invoiceId, buyer.address, amount, dueDate);
     
     let r = await agricredx.receivables(1);
     expect(r.status).to.equal(0); // CREATED

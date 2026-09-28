@@ -33,10 +33,11 @@ contract AgriCredX {
     }
 
     struct Receivable {
-        string offchainId;       // ID in Supabase
+        string invoiceId;
         address supplier;
         address buyer;
         uint256 amount;
+        uint256 dueDate;
         ReceivableStatus status;
         bytes32 attestationDigest;
         address financier;       // Set during funding
@@ -58,7 +59,7 @@ contract AgriCredX {
     // EVENTS
     // ============================================================
 
-    event ReceivableCreated(uint256 indexed id, string offchainId, address indexed supplier, address indexed buyer, uint256 amount);
+    event ReceivableCreated(uint256 indexed id, string invoiceId, address indexed supplier, address indexed buyer, uint256 amount, uint256 dueDate);
     event StatusUpdated(uint256 indexed id, ReceivableStatus oldStatus, ReceivableStatus newStatus);
     event AttestationAnchored(uint256 indexed id, bytes32 digest);
     event ReceivableFunded(uint256 indexed id, address indexed financier, uint256 fundedAmount);
@@ -94,25 +95,27 @@ contract AgriCredX {
     /**
      * @notice Step 1: Supplier creates a receivable
      */
-    function createReceivable(string memory _offchainId, address _buyer, uint256 _amount) external returns (uint256) {
+    function createReceivable(string memory _invoiceId, address _buyer, uint256 _amount, uint256 _dueDate) external returns (uint256) {
         require(_buyer != address(0), "Invalid buyer address");
         require(_amount > 0, "Amount must be > 0");
+        require(_dueDate > block.timestamp, "Due date must be in future");
 
         receivableCount++;
         uint256 newId = receivableCount;
 
         receivables[newId] = Receivable({
-            offchainId: _offchainId,
+            invoiceId: _invoiceId,
             supplier: msg.sender,
             buyer: _buyer,
             amount: _amount,
+            dueDate: _dueDate,
             status: ReceivableStatus.CREATED,
             attestationDigest: bytes32(0),
             financier: address(0),
             fundedAmount: 0
         });
 
-        emit ReceivableCreated(newId, _offchainId, msg.sender, _buyer, _amount);
+        emit ReceivableCreated(newId, _invoiceId, msg.sender, _buyer, _amount, _dueDate);
         return newId;
     }
 
