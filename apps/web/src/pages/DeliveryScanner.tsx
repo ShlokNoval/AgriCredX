@@ -64,10 +64,10 @@ export default function DeliveryScanner() {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-3xl shadow-xl border border-slate-200 text-center relative overflow-hidden">
         
         {/* Top visual decoration */}
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-cyan-500"></div>
+        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-red-600 to-cyan-500"></div>
 
         <div>
-          <div className="mx-auto h-20 w-20 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 mb-6 shadow-sm border border-blue-100">
+          <div className="mx-auto h-20 w-20 bg-red-50 rounded-full flex items-center justify-center text-red-700 mb-6 shadow-sm border border-red-100">
             <QrCode size={40} />
           </div>
           <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -79,9 +79,9 @@ export default function DeliveryScanner() {
         </div>
 
         {/* Security Info Box */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-left flex items-start gap-3">
-          <ShieldAlert className="text-blue-500 shrink-0 mt-0.5" size={20} />
-          <div className="text-sm text-blue-800">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-left flex items-start gap-3">
+          <ShieldAlert className="text-red-600 shrink-0 mt-0.5" size={20} />
+          <div className="text-sm text-red-800">
             <p className="font-bold mb-1">Warehouse Authorization</p>
             <p>
               Please enter your 4-digit Warehouse PIN to confirm this delivery.
@@ -105,7 +105,7 @@ export default function DeliveryScanner() {
                   <select 
                     value={logisticsPhase}
                     onChange={(e) => setLogisticsPhase(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-blue-500 font-medium"
+                    className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-red-600 focus:ring-red-600 font-medium"
                   >
                     <option value="3">📦 Packed & Ready</option>
                     <option value="4">🚚 In Transit</option>
@@ -120,7 +120,7 @@ export default function DeliveryScanner() {
                     maxLength={4}
                     value={pin}
                     onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                    className="w-full text-center text-2xl tracking-widest py-3 px-4 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-blue-500 transition-colors"
+                    className="w-full text-center text-2xl tracking-widest py-3 px-4 border-2 border-slate-200 rounded-xl focus:border-red-600 focus:ring-red-600 transition-colors"
                   />
                 </div>
                 <div>
@@ -167,7 +167,7 @@ export default function DeliveryScanner() {
               <button
                 onClick={handleUpdateStatus}
                 disabled={isSubmitting || pin.length < 4}
-                className="w-full flex items-center justify-center py-4 px-4 border border-transparent text-lg font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+                className="w-full flex items-center justify-center py-4 px-4 border border-transparent text-lg font-bold rounded-xl text-white bg-red-700 hover:bg-red-800 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed mt-4"
               >
                 <Truck className="mr-2" size={24} />
                 {isSubmitting ? 'Updating Chain...' : 'Update Status'}

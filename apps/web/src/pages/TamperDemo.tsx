@@ -39,7 +39,7 @@ export default function TamperDemo() {
             </div>
             
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex gap-4">
-              <div className="text-blue-500"><FileText size={40} /></div>
+              <div className="text-red-600"><FileText size={40} /></div>
               <div>
                 <p className="font-semibold text-slate-800">INV-2026-09124.pdf</p>
                 <p className="text-sm text-slate-500">Amount: ₹850,000</p>

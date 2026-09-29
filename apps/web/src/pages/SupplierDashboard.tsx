@@ -138,7 +138,7 @@ export default function SupplierDashboard() {
       {isConnected && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in">
           <div className="bg-white border border-slate-200 rounded-xl p-5 flex items-center shadow-sm">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg mr-4">
+            <div className="p-3 bg-red-50 text-red-700 rounded-lg mr-4">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
             <div>
@@ -156,7 +156,7 @@ export default function SupplierDashboard() {
             </div>
           </div>
           <div className="bg-white border border-slate-200 rounded-xl p-5 flex items-center shadow-sm">
-            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg mr-4">
+            <div className="p-3 bg-rose-50 text-rose-600 rounded-lg mr-4">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
             </div>
             <div>
@@ -236,7 +236,7 @@ export default function SupplierDashboard() {
                   value={invoiceId}
                   onChange={(e) => setInvoiceId(e.target.value)}
                   placeholder="e.g. INV-2026-09124"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none"
                 />
               </div>
 
@@ -248,7 +248,7 @@ export default function SupplierDashboard() {
                   value={buyerAddress}
                   onChange={(e) => setBuyerAddress(e.target.value)}
                   placeholder="0x..."
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none"
                 />
               </div>
               
@@ -261,7 +261,7 @@ export default function SupplierDashboard() {
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="e.g. 9"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none"
                 />
               </div>
 
@@ -273,14 +273,14 @@ export default function SupplierDashboard() {
                   value={dueDateDays}
                   onChange={(e) => setDueDateDays(e.target.value)}
                   placeholder="60"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none"
                 />
               </div>
               
               <button 
                 type="submit"
                 disabled={isSubmitting || !buyerAddress || !amount || !invoiceId || !dueDateDays}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="px-6 py-2 bg-red-700 text-white rounded-lg font-medium hover:bg-red-800 disabled:opacity-50 transition-colors"
               >
                 {isSubmitting ? 'Confirming on Chain...' : 'Send Quotation'}
               </button>
@@ -299,7 +299,7 @@ export default function SupplierDashboard() {
                     <li><strong>Invoice ID:</strong> {createdReceivable.invoiceId}</li>
                     <li><strong>Amount:</strong> {createdReceivable.amount}</li>
                     <li><strong>Buyer:</strong> {createdReceivable.buyer}</li>
-                    <li><strong>Status:</strong> <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-bold">{createdReceivable.status}</span></li>
+                    <li><strong>Status:</strong> <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded text-xs font-bold">{createdReceivable.status}</span></li>
                   </ul>
                 </div>
               )}
@@ -311,7 +311,7 @@ export default function SupplierDashboard() {
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
           <h2 className="text-lg font-semibold text-slate-800">Your Active Receivables</h2>
-          <button onClick={() => setTableRefreshKey(k => k + 1)} className="text-sm text-blue-600 hover:text-blue-800 flex items-center">
+          <button onClick={() => setTableRefreshKey(k => k + 1)} className="text-sm text-red-700 hover:text-red-800 flex items-center">
             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             Refresh Data
           </button>
@@ -335,7 +335,7 @@ async function hashFileBytes(file: File): Promise<string> {
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   'QUOTATION_SENT':          { label: 'QUOTATION SENT',          color: 'bg-amber-100 text-amber-800' },
   'BUYER_ACCEPTED':          { label: 'BUYER ACCEPTED',          color: 'bg-emerald-100 text-emerald-800' },
-  'DOCUMENTATION_UPLOADED':  { label: 'DOCS UPLOADED',           color: 'bg-blue-100 text-blue-800' },
+  'DOCUMENTATION_UPLOADED':  { label: 'DOCS UPLOADED',           color: 'bg-red-100 text-red-800' },
   'PACKED':                  { label: 'PACKED',                  color: 'bg-violet-100 text-violet-800' },
   'IN_TRANSIT':              { label: 'IN TRANSIT',              color: 'bg-orange-100 text-orange-800' },
   'DELIVERED':               { label: 'DELIVERED',               color: 'bg-emerald-200 text-emerald-900' },
@@ -485,6 +485,7 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
         <table className="w-full text-left text-sm text-slate-600">
           <thead className="text-xs uppercase bg-slate-50 text-slate-700">
             <tr>
+              <th className="px-4 py-3">Transaction Ref</th>
               <th className="px-4 py-3">Quotation / Invoice</th>
               <th className="px-4 py-3">Amount</th>
               <th className="px-4 py-3">Due Date</th>
@@ -498,6 +499,7 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
               const statusInfo = STATUS_MAP[r.status] || STATUS_MAP['UNKNOWN'];
               return (
                 <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="px-4 py-3 font-mono text-xs text-slate-500">REC-2026-000{r.on_chain_id || 'X'}</td>
                   <td className="px-4 py-3">
                     <p className="font-medium text-slate-900">{r.invoice_id}</p>
                     {(() => {
@@ -543,7 +545,7 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
                       {/* Verify Document Hash - after docs uploaded */}
                       {r.on_chain_id && r.statusNum >= 2 && r.attestation_digest && r.attestation_digest !== ethers.ZeroHash && (
                         <label
-                          className={`flex items-center text-xs bg-slate-100 text-slate-700 px-3 py-1.5 rounded hover:bg-indigo-50 hover:text-indigo-600 transition-colors border border-slate-200 font-semibold cursor-pointer ${verifyingId === r.on_chain_id ? 'opacity-50 pointer-events-none' : ''}`}
+                          className={`flex items-center text-xs bg-slate-100 text-slate-700 px-3 py-1.5 rounded hover:bg-rose-50 hover:text-rose-600 transition-colors border border-slate-200 font-semibold cursor-pointer ${verifyingId === r.on_chain_id ? 'opacity-50 pointer-events-none' : ''}`}
                           title="Select a document to verify its hash against the on-chain digest"
                         >
                           <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
@@ -570,7 +572,7 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
                             const url = `${baseUrl}/delivery/${r.on_chain_id}?hash=${r.attestation_digest || 'unsigned'}`;
                             window.open(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`, '_blank', 'width=400,height=400');
                           }}
-                          className="flex items-center text-xs bg-slate-100 text-slate-700 px-3 py-1.5 rounded hover:bg-blue-50 hover:text-blue-600 transition-colors border border-slate-200"
+                          className="flex items-center text-xs bg-slate-100 text-slate-700 px-3 py-1.5 rounded hover:bg-red-50 hover:text-red-700 transition-colors border border-slate-200"
                           title="Generate QR code for physical logistics"
                         >
                           <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
@@ -647,7 +649,7 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
                               win.document.close();
                             }
                           }}
-                          className="flex items-center text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded hover:bg-blue-100 transition-colors border border-blue-200 font-semibold"
+                          className="flex items-center text-xs bg-red-50 text-red-800 px-3 py-1.5 rounded hover:bg-red-100 transition-colors border border-red-200 font-semibold"
                         >
                           <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                           View Delivery Proofs

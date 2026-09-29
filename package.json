@@ -31,5 +31,8 @@
     "type": "git",
     "url": "https://github.com/ShlokNoval/Team_InnoVision.git"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
+  }
 }

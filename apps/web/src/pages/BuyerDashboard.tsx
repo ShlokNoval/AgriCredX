@@ -15,13 +15,13 @@ async function hashFileBytes(file: File): Promise<string> {
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   'QUOTATION_SENT':          { label: 'QUOTATION SENT',          color: 'text-amber-800',    bg: 'bg-amber-100' },
   'BUYER_ACCEPTED':          { label: 'BUYER ACCEPTED',          color: 'text-emerald-800',  bg: 'bg-emerald-100' },
-  'DOCUMENTATION_UPLOADED':  { label: 'DOCS UPLOADED',           color: 'text-blue-800',     bg: 'bg-blue-100' },
+  'DOCUMENTATION_UPLOADED':  { label: 'DOCS UPLOADED',           color: 'text-red-800',     bg: 'bg-red-100' },
   'PACKED':                  { label: 'PACKED',                  color: 'text-violet-800',   bg: 'bg-violet-100' },
   'IN_TRANSIT':              { label: 'IN TRANSIT',              color: 'text-orange-800',   bg: 'bg-orange-100' },
   'DELIVERED':               { label: 'DELIVERED',               color: 'text-emerald-900',  bg: 'bg-emerald-200' },
   'VERIFIED':                { label: 'VERIFIED',                color: 'text-teal-800',     bg: 'bg-teal-100' },
   'ATTESTED':                { label: 'ATTESTED',                color: 'text-cyan-800',     bg: 'bg-cyan-100' },
-  'FINANCEABLE':             { label: 'FINANCEABLE',             color: 'text-indigo-800',   bg: 'bg-indigo-100' },
+  'FINANCEABLE':             { label: 'FINANCEABLE',             color: 'text-indigo-800',   bg: 'bg-rose-100' },
   'FUNDED':                  { label: 'FUNDED',                  color: 'text-purple-800',   bg: 'bg-purple-100' },
   'OUTSTANDING':             { label: 'OUTSTANDING',             color: 'text-pink-800',     bg: 'bg-pink-100' },
   'REPAID':                  { label: 'REPAID',                  color: 'text-emerald-900',  bg: 'bg-emerald-200' },
@@ -324,7 +324,7 @@ export default function BuyerDashboard() {
           {/* Search Panel */}
           <div className="bg-white border border-slate-200/60 rounded-2xl shadow-sm p-6 flex flex-col hover:shadow-md transition-shadow">
             <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-              <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+              <svg className="w-5 h-5 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
               Lookup Receivable
             </h2>
             <div className="space-y-4">
@@ -472,7 +472,7 @@ export default function BuyerDashboard() {
                     <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
                       <p className="text-slate-400 text-xs mb-2">Verify a Supplier Document Against On-Chain Hash</p>
                       <div className="flex gap-2">
-                        <label className={`inline-flex items-center text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1.5 rounded hover:bg-indigo-500/30 transition-colors border border-indigo-500/30 font-semibold cursor-pointer ${verifyingDoc ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <label className={`inline-flex items-center text-xs bg-rose-500/20 text-indigo-300 px-3 py-1.5 rounded hover:bg-rose-500/30 transition-colors border border-indigo-500/30 font-semibold cursor-pointer ${verifyingDoc ? 'opacity-50 pointer-events-none' : ''}`}>
                           <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
                           {verifyingDoc ? 'Verifying...' : 'Upload & Verify Document'}
                           <input 
@@ -534,7 +534,7 @@ export default function BuyerDashboard() {
                     </div>
                   )}
                   {activeReceivable.status === 2 && (
-                    <div className="w-full text-center p-3 text-sm bg-blue-50 border border-blue-200 rounded-lg text-blue-700 font-medium">
+                    <div className="w-full text-center p-3 text-sm bg-red-50 border border-red-200 rounded-lg text-red-800 font-medium">
                       📄 Documents Uploaded & Hashed. Awaiting logistics pickup.
                     </div>
                   )}
@@ -700,6 +700,7 @@ function BuyerReceivablesTable({ onSelect, refreshKey }: { onSelect: (id: string
       <table className="w-full text-left text-sm text-slate-600">
         <thead className="text-xs uppercase bg-slate-50 text-slate-700">
           <tr>
+            <th className="px-4 py-3">Transaction Ref</th>
             <th className="px-4 py-3">Invoice ID</th>
             <th className="px-4 py-3">Amount</th>
             <th className="px-4 py-3">Due Date</th>
@@ -712,6 +713,7 @@ function BuyerReceivablesTable({ onSelect, refreshKey }: { onSelect: (id: string
             const style = getStatusStyle(r.status);
             return (
               <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50">
+                <td className="px-4 py-3 font-mono text-xs text-slate-500">REC-2026-000{r.on_chain_id || 'X'}</td>
                 <td className="px-4 py-3 font-medium text-slate-900">{r.invoice_id}</td>
                 <td className="px-4 py-3 font-mono">{r.amount} {r.currency}</td>
                 <td className="px-4 py-3">{new Date(r.due_date).toLocaleDateString()}</td>

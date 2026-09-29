@@ -136,11 +136,11 @@ export default function FinancierDashboard() {
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Requested Value</p>
-                    <p className="font-bold text-indigo-600">{activeReceivable.amount} INR</p>
+                    <p className="font-bold text-rose-600">{activeReceivable.amount} INR</p>
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</p>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 mt-1">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-indigo-800 mt-1">
                       {statusMap[activeReceivable.status]}
                     </span>
                   </div>
@@ -203,7 +203,7 @@ export default function FinancierDashboard() {
                 )}
                 
                 {txHash && (
-                  <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-sm text-indigo-800 break-all font-mono">
+                  <div className="p-4 bg-rose-50 border border-indigo-200 rounded-xl text-sm text-indigo-800 break-all font-mono">
                     <strong>TX Confirmed:</strong> {txHash}
                   </div>
                 )}
@@ -217,7 +217,7 @@ export default function FinancierDashboard() {
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mt-8">
           <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
             <h2 className="text-lg font-semibold text-slate-800">Financeable Opportunities</h2>
-            <button onClick={() => window.location.reload()} className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center">
+            <button onClick={() => window.location.reload()} className="text-sm text-rose-600 hover:text-indigo-800 flex items-center">
               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
               Refresh Data
             </button>
@@ -275,7 +275,7 @@ function FinancierReceivablesTable({ onSelect }: { onSelect: (id: string) => voi
               <td className="px-4 py-3 font-mono">{r.amount} {r.currency}</td>
               <td className="px-4 py-3">{new Date(r.due_date).toLocaleDateString()}</td>
               <td className="px-4 py-3">
-                <span className="bg-indigo-100 text-indigo-800 text-xs font-semibold px-2.5 py-0.5 rounded">{r.status}</span>
+                <span className="bg-rose-100 text-indigo-800 text-xs font-semibold px-2.5 py-0.5 rounded">{r.status}</span>
               </td>
               <td className="px-4 py-3">
                 <button 

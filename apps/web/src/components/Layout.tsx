@@ -24,7 +24,7 @@ export default function Layout() {
             <div className="flex items-center gap-8">
               <Link to="/" className="flex items-center gap-2">
                 <span className="text-xl font-bold text-slate-900 tracking-tight">AgriCredX</span>
-                <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                <span className="bg-red-100 text-red-800 text-xs font-semibold px-2 py-0.5 rounded-full">
                   {getRoleFromPath()}
                 </span>
               </Link>
@@ -42,7 +42,7 @@ export default function Layout() {
                 <button
                   onClick={connectWallet}
                   disabled={isConnecting}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-70"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-red-700 hover:bg-red-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-70"
                 >
                   <Wallet size={16} />
                   {isConnecting ? 'Connecting...' : 'Connect BridgeKey'}
