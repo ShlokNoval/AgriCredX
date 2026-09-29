@@ -13,6 +13,21 @@ export default function DeliveryScanner() {
   const [logisticsPhase, setLogisticsPhase] = useState('3'); // Default to PACKED
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
 
+  const [originAddress, setOriginAddress] = useState<string | null>(null);
+  const [deliveryAddress, setDeliveryAddress] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (id) {
+      fetch(`/api/get-address?txId=${id}`)
+        .then(res => res.json())
+        .then(data => {
+          setOriginAddress(data.originAddress);
+          setDeliveryAddress(data.deliveryAddress);
+        })
+        .catch(e => console.error("Failed to load addresses", e));
+    }
+  }, [id]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
   const [error, setError] = useState('');
@@ -46,8 +61,19 @@ export default function DeliveryScanner() {
       
       // Call the updateLogisticsStatus function on the blockchain
       // 3 = PACKED, 4 = IN_TRANSIT, 5 = DELIVERED
+      const currentR = await contract.receivables(id);
+      if (Number(currentR.status) >= Number(logisticsPhase) || Number(currentR.status) < 2) {
+        alert("Cannot update status! The status has either already progressed past this point, or documents have not been uploaded yet.");
+        setIsSubmitting(false);
+        return;
+      }
       const tx = await contract.updateLogisticsStatus(id, Number(logisticsPhase));
-      await tx.wait();
+      try {
+        await tx.wait();
+      } catch (waitErr: any) {
+        console.warn("tx.wait() rate limited. Ignoring.", waitErr);
+        await new Promise(res => setTimeout(res, 3000));
+      }
 
       if (photoDataUrl) {
         localStorage.setItem(`deliveryProof_${id}_${logisticsPhase}`, photoDataUrl);
@@ -90,6 +116,23 @@ export default function DeliveryScanner() {
           <p className="mt-3 text-slate-600 font-medium">
             Scanned Asset ID: <span className="font-mono bg-slate-100 px-2 py-1 rounded text-slate-800">#{id}</span>
           </p>
+
+          {(originAddress || deliveryAddress) && (
+            <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-xl text-left space-y-2">
+              {originAddress && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Origin</p>
+                  <p className="text-sm text-slate-700">{originAddress}</p>
+                </div>
+              )}
+              {deliveryAddress && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Destination</p>
+                  <p className="text-sm text-slate-700">{deliveryAddress}</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Security Info Box */}

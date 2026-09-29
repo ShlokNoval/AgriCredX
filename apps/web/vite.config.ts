@@ -197,6 +197,64 @@ function pdfGeneratorPlugin() {
         }
       });
 
+      // Address mapping endpoints
+      const addressesFile = path.resolve(__dirname, '../../demo/addresses.json');
+      server.middlewares.use('/api/set-address', (req: any, res: any, next: any) => {
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk.toString(); });
+          req.on('end', () => {
+            try {
+              const { txId, originAddress, deliveryAddress } = JSON.parse(body);
+              let addresses: any = {};
+              if (fs.existsSync(addressesFile)) {
+                addresses = JSON.parse(fs.readFileSync(addressesFile, 'utf-8'));
+              }
+              if (!addresses[txId]) addresses[txId] = {};
+              if (originAddress) addresses[txId].originAddress = originAddress;
+              if (deliveryAddress) addresses[txId].deliveryAddress = deliveryAddress;
+              
+              fs.mkdirSync(path.dirname(addressesFile), { recursive: true });
+              fs.writeFileSync(addressesFile, JSON.stringify(addresses, null, 2));
+              
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: true }));
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          });
+        } else {
+          next();
+        }
+      });
+
+      server.middlewares.use('/api/get-address', (req: any, res: any, next: any) => {
+        if (req.method === 'GET') {
+          try {
+            const urlParams = new URLSearchParams(req.url.split('?')[1] || '');
+            const txId = urlParams.get('txId');
+            
+            let addresses: any = {};
+            if (fs.existsSync(addressesFile)) {
+              addresses = JSON.parse(fs.readFileSync(addressesFile, 'utf-8'));
+            }
+            
+            res.setHeader('Content-Type', 'application/json');
+            if (txId && addresses[txId]) {
+              res.end(JSON.stringify(addresses[txId]));
+            } else {
+              res.end(JSON.stringify({ originAddress: null, deliveryAddress: null }));
+            }
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: err.message }));
+          }
+        } else {
+          next();
+        }
+      });
+
       server.middlewares.use('/api/admin-users', (req: any, res: any, next: any) => {
         if (req.method === 'GET') {
           try {

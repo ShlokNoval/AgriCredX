@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ethers } from 'ethers';
+import { supabase } from '../lib/supabase';
 
 interface WalletContextType {
   address: string | null;
@@ -21,6 +22,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const syncWalletAddress = async (walletAddr: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('profiles').update({ wallet_address: walletAddr }).eq('id', user.id);
+      }
+    } catch (e) { console.error(e); }
+  };
+
   // Check if wallet was previously connected
   useEffect(() => {
     const checkConnection = async () => {
@@ -35,6 +45,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             setAddress(accounts[0]);
             setProvider(browserProvider);
             setSigner(activeSigner);
+            syncWalletAddress(accounts[0]);
           }
         } catch (err: any) {
           console.error("Failed to check wallet connection:", err);
@@ -57,6 +68,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           setAddress(address);
           setProvider(browserProvider);
           setSigner(activeSigner);
+          syncWalletAddress(address);
           
           // AUTO-FAUCET FOR LOCAL DEMO
           try {

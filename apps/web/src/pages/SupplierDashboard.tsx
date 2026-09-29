@@ -9,6 +9,7 @@ export default function SupplierDashboard() {
   const [amount, setAmount] = useState('1');
   const [invoiceId, setInvoiceId] = useState('INV-2026-09124');
   const [dueDateDays, setDueDateDays] = useState('60');
+  const [originAddress, setOriginAddress] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [createdReceivable, setCreatedReceivable] = useState<any>(null);
@@ -71,24 +72,44 @@ export default function SupplierDashboard() {
       const tx = await contract.createReceivable(invoiceId, buyerAddress, parsedAmount, dueDateTimestamp, invoiceDocUri);
       setTxHash(tx.hash);
 
-      const receipt = await tx.wait(); // Wait for confirmation
-      console.log("Transaction confirmed!");
-
-      // Look for ReceivableCreated event
-      const iface = new ethers.Interface(contract.interface.fragments);
+      let receipt = null;
       let newReceivableId = null;
-      for (const log of receipt.logs) {
-        try {
-          const parsedLog = iface.parseLog(log);
-          if (parsedLog && parsedLog.name === 'ReceivableCreated') {
-            newReceivableId = parsedLog.args[0]; // id is the first arg
+      try {
+        receipt = await tx.wait(); // Wait for confirmation
+        console.log("Transaction confirmed!");
+        // Look for ReceivableCreated event
+        const iface = new ethers.Interface(contract.interface.fragments);
+        for (const log of receipt.logs) {
+          try {
+            const parsedLog = iface.parseLog(log);
+            if (parsedLog && parsedLog.name === 'ReceivableCreated') {
+              newReceivableId = parsedLog.args[0]; // id is the first arg
+            }
+          } catch (e) {
+            // Ignore logs not matching our interface
           }
-        } catch (e) {
-          // Ignore logs not matching our interface
         }
+      } catch (waitErr: any) {
+        console.warn("tx.wait() threw an error (likely 429 rate limit). Approximating ID.", waitErr);
+        await new Promise(res => setTimeout(res, 4000));
+        // Fallback: get the latest ID directly from the contract
+        const count = await contract.receivableCount();
+        newReceivableId = count;
       }
 
       if (newReceivableId) {
+        try {
+          if (originAddress) {
+            await fetch('/api/set-address', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ txId: newReceivableId.toString(), originAddress })
+            });
+          }
+        } catch (e) {
+          console.error("Failed to save origin address", e);
+        }
+
         // Read back the state from the local chain
         const readContract = getReadOnlyContract();
         const receivableData = await readContract.receivables(newReceivableId);
@@ -277,6 +298,18 @@ export default function SupplierDashboard() {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Origin Address (Shipping From)</label>
+                <textarea
+                  required
+                  value={originAddress}
+                  onChange={(e) => setOriginAddress(e.target.value)}
+                  placeholder="e.g. Warehouse 4, AgriPark, Pune, Maharashtra"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none"
+                  rows={2}
+                />
+              </div>
+
               <button
                 type="submit"
                 disabled={isSubmitting || !buyerAddress || !amount || !invoiceId || !dueDateDays}
@@ -372,6 +405,15 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
         const data = [];
         for (let i = 1; i <= Number(count); i++) {
           const r = await contract.receivables(i);
+          let originAddress = null;
+          let deliveryAddress = null;
+          try {
+            const res = await fetch(`/api/get-address?txId=${i}`);
+            const json = await res.json();
+            originAddress = json.originAddress;
+            deliveryAddress = json.deliveryAddress;
+          } catch (e) {}
+
           data.push({
             id: i,
             invoice_id: r.invoiceId,
@@ -381,7 +423,9 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
             status: statusFromEnum(Number(r.status)),
             statusNum: Number(r.status),
             on_chain_id: i.toString(),
-            attestation_digest: r.attestationDigest
+            attestation_digest: r.attestationDigest,
+            originAddress,
+            deliveryAddress
           });
         }
         setReceivables(data.reverse());
@@ -427,8 +471,23 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
       const digest = ethers.keccak256(allBytes);
 
       const contract = getAgriCredXContract(signer);
+      
+      // Check current status before sending tx to avoid confusing gas estimation errors
+      const currentR = await contract.receivables(id);
+      if (Number(currentR.status) !== 1) {
+        alert("Documents for this receivable have already been uploaded or the status has changed! Refreshing the page.");
+        onUploaded();
+        setIsUploading(null);
+        return;
+      }
+
       const tx = await contract.uploadDocumentation(id, digest);
-      await tx.wait();
+      try {
+        await tx.wait();
+      } catch (waitErr: any) {
+        console.warn("tx.wait() rate limited. Ignoring.", waitErr);
+        await new Promise(res => setTimeout(res, 3000));
+      }
 
       setUploadResult({ id, hash: digest, txHash: tx.hash });
       console.log(`Documentation anchored on-chain. Digest: ${digest}`);
@@ -523,15 +582,16 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
                         <p className="text-xs text-slate-500 mt-1 font-semibold">{commodity}</p>
                       );
                     })()}
-                    {(() => {
-                      const addr = r.on_chain_id ? localStorage.getItem(`deliveryAddress_${r.on_chain_id}`) : null;
-                      if (addr) return (
-                        <div className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded text-[10px] leading-tight text-slate-600">
-                          <strong>Delivery Address:</strong><br />{addr}
-                        </div>
-                      );
-                      return null;
-                    })()}
+                    {r.originAddress && (
+                      <div className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded text-[10px] leading-tight text-slate-600">
+                        <strong className="text-slate-800 uppercase tracking-wider">Origin (Shipping From)</strong><br />{r.originAddress}
+                      </div>
+                    )}
+                    {r.deliveryAddress && (
+                      <div className="mt-1 p-2 bg-slate-50 border border-slate-200 rounded text-[10px] leading-tight text-slate-600">
+                        <strong className="text-slate-800 uppercase tracking-wider">Delivery (Shipping To)</strong><br />{r.deliveryAddress}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 font-mono">{r.amount} {r.currency}</td>
                   <td className="px-4 py-3">{new Date(r.due_date).toLocaleDateString()}</td>
