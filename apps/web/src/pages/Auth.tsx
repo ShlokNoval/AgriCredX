@@ -28,7 +28,13 @@ export default function Auth() {
         
         if (error) throw error;
         
-        // Check role after login
+        // Force redirect to admin dashboard if using admin credentials
+        if (email.toLowerCase() === 'admin@demo.agricredx.com') {
+          navigate('/admin');
+          return;
+        }
+
+        // Check role after login for normal users
         if (data.user) {
           const { data: profileData } = await supabase
             .from('profiles')
@@ -45,11 +51,24 @@ export default function Auth() {
           }
         }
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password
         });
         if (error) throw error;
+        
+        if (email.toLowerCase() === 'admin@demo.agricredx.com' && data.user) {
+          // Attempt to create profile for admin on-the-fly (might fail if RLS prevents it, but works in local dev usually)
+          await supabase.from('profiles').insert({
+            id: data.user.id,
+            email: email,
+            role: 'admin',
+            wallet_address: '0x0000000000000000000000000000000000000000'
+          });
+          navigate('/admin');
+          return;
+        }
+
         alert("Registration successful! (In a real app, check email for verification). You can now login.");
         setIsLogin(true);
       }
