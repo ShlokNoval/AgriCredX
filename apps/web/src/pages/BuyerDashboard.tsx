@@ -3,6 +3,7 @@ import { useWallet } from '../contexts/WalletContext';
 import { getAgriCredXContract, getReadOnlyContract, getReadOnlyProvider } from '../lib/contract';
 import { ethers } from 'ethers';
 import { PlusCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 /** Compute SHA-256 hash of file bytes, returns 0x-prefixed hex string */
 async function hashFileBytes(file: File): Promise<string> {
@@ -123,15 +124,28 @@ export default function BuyerDashboard() {
   const fetchReceivable = async () => {
     if (!receivableId) return;
     try {
-      // Read directly from local Hardhat node
       const contract = getReadOnlyContract();
       const data = await contract.receivables(receivableId);
+      
+      let buyerOrg = 'Anonymous Buyer';
+      let supplierOrg = 'Anonymous Supplier';
+
+      try {
+        const { data: bData } = await supabase.from('profiles').select('organizations(name)').eq('wallet_address', data.buyer).single();
+        if (bData?.organizations?.name) buyerOrg = bData.organizations.name;
+        
+        const { data: sData } = await supabase.from('profiles').select('organizations(name)').eq('wallet_address', data.supplier).single();
+        if (sData?.organizations?.name) supplierOrg = sData.organizations.name;
+      } catch (e) { console.error('Failed org lookup', e); }
+
       setActiveReceivable({
         id: receivableId,
         invoiceId: data.invoiceId,
         amount: ethers.formatEther(data.amount),
         buyer: data.buyer,
         supplier: data.supplier,
+        buyerName: buyerOrg,
+        supplierName: supplierOrg,
         status: Number(data.status),
         statusKey: statusFromEnum(Number(data.status)),
         attestationDigest: data.attestationDigest
@@ -167,8 +181,8 @@ export default function BuyerDashboard() {
           body: JSON.stringify({
             txId: activeReceivable.id.toString(),
             amount: activeReceivable.amount.toString(),
-            buyerName: 'ABC Foods',
-            supplierName: 'Demo Basmati Exporter'
+            buyerName: activeReceivable.buyerName || 'ABC Foods',
+            supplierName: activeReceivable.supplierName || 'Demo Basmati Exporter'
           })
         });
       } catch (err) {
