@@ -141,6 +141,96 @@ function pdfGeneratorPlugin() {
         }
       });
 
+      server.middlewares.use('/api/set-profile', (req: any, res: any, next: any) => {
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk.toString(); });
+          req.on('end', () => {
+            try {
+              const { email, companyName } = JSON.parse(body);
+              const rootDir = path.resolve(__dirname, '../../');
+              const demoDir = path.join(rootDir, 'demo');
+              if (!fs.existsSync(demoDir)) fs.mkdirSync(demoDir, { recursive: true });
+              
+              const profilesFile = path.join(demoDir, 'company_profiles.json');
+              let profiles: any = {};
+              if (fs.existsSync(profilesFile)) {
+                profiles = JSON.parse(fs.readFileSync(profilesFile, 'utf8'));
+              }
+              profiles[email.toLowerCase()] = companyName;
+              fs.writeFileSync(profilesFile, JSON.stringify(profiles));
+              
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: true }));
+            } catch (err: any) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: err.message }));
+            }
+          });
+        } else {
+          next();
+        }
+      });
+
+      server.middlewares.use('/api/get-profile', (req: any, res: any, next: any) => {
+        if (req.method === 'GET') {
+          try {
+            const urlParams = new URLSearchParams(req.url.split('?')[1] || '');
+            const email = urlParams.get('email');
+            const profilesFile = path.resolve(__dirname, '../../demo/company_profiles.json');
+            let profiles: any = {};
+            if (fs.existsSync(profilesFile)) {
+              profiles = JSON.parse(fs.readFileSync(profilesFile, 'utf8'));
+            }
+            res.setHeader('Content-Type', 'application/json');
+            if (email) {
+              res.end(JSON.stringify({ companyName: profiles[email.toLowerCase()] || null }));
+            } else {
+              res.end(JSON.stringify(profiles));
+            }
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: err.message }));
+          }
+        } else {
+          next();
+        }
+      });
+
+      server.middlewares.use('/api/admin-users', (req: any, res: any, next: any) => {
+        if (req.method === 'GET') {
+          try {
+            const profilesFile = path.resolve(__dirname, '../../demo/company_profiles.json');
+            let profiles: any = {};
+            if (fs.existsSync(profilesFile)) {
+              profiles = JSON.parse(fs.readFileSync(profilesFile, 'utf8'));
+            }
+            
+            const users = Object.keys(profiles).map((email, index) => {
+               const name = profiles[email];
+               let role = 'supplier';
+               if (name.toLowerCase().includes('buyer') || email.toLowerCase().includes('buyer')) role = 'buyer';
+               if (email.toLowerCase().includes('admin')) role = 'admin';
+               
+               return {
+                  id: email, // Use email as ID for flagging locally
+                  email: email,
+                  role: role,
+                  organizations: { name: name }
+               };
+            });
+            
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify(users));
+          } catch (err: any) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: err.message }));
+          }
+        } else {
+          next();
+        }
+      });
+
       server.middlewares.use('/api/upload-proof', async (req: any, res: any, next: any) => {
         if (req.method === 'POST') {
           let body = '';
