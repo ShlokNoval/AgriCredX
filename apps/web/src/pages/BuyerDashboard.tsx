@@ -158,6 +158,23 @@ export default function BuyerDashboard() {
       });
       setTxHash(tx.hash);
       await tx.wait();
+
+      // Trigger automatic dynamic PDF generation on local server
+      try {
+        await fetch('/api/generate-demo-docs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            txId: activeReceivable.id.toString(),
+            amount: activeReceivable.amount.toString(),
+            buyerName: 'ABC Foods',
+            supplierName: 'Demo Basmati Exporter'
+          })
+        });
+      } catch (err) {
+        console.warn("Dynamic PDF generation failed (expected if not on local dev server)", err);
+      }
+
       // Refresh both the active receivable details AND the table
       await fetchReceivable();
       setTableRefreshKey(k => k + 1);
