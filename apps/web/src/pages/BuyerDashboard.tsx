@@ -14,20 +14,20 @@ async function hashFileBytes(file: File): Promise<string> {
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  'QUOTATION_SENT':          { label: 'QUOTATION SENT',          color: 'text-amber-800',    bg: 'bg-amber-100' },
-  'BUYER_ACCEPTED':          { label: 'BUYER ACCEPTED',          color: 'text-emerald-800',  bg: 'bg-emerald-100' },
-  'DOCUMENTATION_UPLOADED':  { label: 'DOCS UPLOADED',           color: 'text-red-800',     bg: 'bg-red-100' },
-  'PACKED':                  { label: 'PACKED',                  color: 'text-violet-800',   bg: 'bg-violet-100' },
-  'IN_TRANSIT':              { label: 'IN TRANSIT',              color: 'text-orange-800',   bg: 'bg-orange-100' },
-  'DELIVERED':               { label: 'DELIVERED',               color: 'text-emerald-900',  bg: 'bg-emerald-200' },
-  'VERIFIED':                { label: 'VERIFIED',                color: 'text-teal-800',     bg: 'bg-teal-100' },
-  'ATTESTED':                { label: 'ATTESTED',                color: 'text-cyan-800',     bg: 'bg-cyan-100' },
-  'FINANCEABLE':             { label: 'FINANCEABLE',             color: 'text-indigo-800',   bg: 'bg-rose-100' },
-  'FUNDED':                  { label: 'FUNDED',                  color: 'text-purple-800',   bg: 'bg-purple-100' },
-  'OUTSTANDING':             { label: 'OUTSTANDING',             color: 'text-pink-800',     bg: 'bg-pink-100' },
-  'REPAID':                  { label: 'REPAID',                  color: 'text-emerald-900',  bg: 'bg-emerald-200' },
-  'CLOSED':                  { label: 'CLOSED',                  color: 'text-slate-800',    bg: 'bg-slate-200' },
-  'DISPUTED':                { label: 'DISPUTED',                color: 'text-red-800',      bg: 'bg-red-100' },
+  'QUOTATION_SENT': { label: 'QUOTATION SENT', color: 'text-amber-800', bg: 'bg-amber-100' },
+  'BUYER_ACCEPTED': { label: 'BUYER ACCEPTED', color: 'text-emerald-800', bg: 'bg-emerald-100' },
+  'DOCUMENTATION_UPLOADED': { label: 'DOCS UPLOADED', color: 'text-red-800', bg: 'bg-red-100' },
+  'PACKED': { label: 'PACKED', color: 'text-violet-800', bg: 'bg-violet-100' },
+  'IN_TRANSIT': { label: 'IN TRANSIT', color: 'text-orange-800', bg: 'bg-orange-100' },
+  'DELIVERED': { label: 'DELIVERED', color: 'text-emerald-900', bg: 'bg-emerald-200' },
+  'VERIFIED': { label: 'VERIFIED', color: 'text-teal-800', bg: 'bg-teal-100' },
+  'ATTESTED': { label: 'ATTESTED', color: 'text-cyan-800', bg: 'bg-cyan-100' },
+  'FINANCEABLE': { label: 'FINANCEABLE', color: 'text-indigo-800', bg: 'bg-rose-100' },
+  'FUNDED': { label: 'FUNDED', color: 'text-purple-800', bg: 'bg-purple-100' },
+  'OUTSTANDING': { label: 'OUTSTANDING', color: 'text-pink-800', bg: 'bg-pink-100' },
+  'REPAID': { label: 'REPAID', color: 'text-emerald-900', bg: 'bg-emerald-200' },
+  'CLOSED': { label: 'CLOSED', color: 'text-slate-800', bg: 'bg-slate-200' },
+  'DISPUTED': { label: 'DISPUTED', color: 'text-red-800', bg: 'bg-red-100' },
 };
 
 function statusFromEnum(n: number): string {
@@ -80,7 +80,7 @@ export default function BuyerDashboard() {
     const fetchBalance = async () => {
       try {
         if (!address) return;
-        
+
         let bal;
         if (typeof window !== 'undefined' && (window as any).ethereum) {
           const browserProvider = new ethers.BrowserProvider((window as any).ethereum);
@@ -89,7 +89,7 @@ export default function BuyerDashboard() {
           const localProvider = getReadOnlyProvider();
           bal = await localProvider.getBalance(address);
         }
-        
+
         setWalletBalance(ethers.formatEther(bal));
       } catch (e) {
         console.error("Failed to fetch balance", e);
@@ -126,15 +126,15 @@ export default function BuyerDashboard() {
     try {
       const contract = getReadOnlyContract();
       const data = await contract.receivables(receivableId);
-      
+
       let buyerOrg = 'Anonymous Buyer';
       let supplierOrg = 'Anonymous Supplier';
 
       try {
-        const { data: bData } = await supabase.from('profiles').select('organizations(name)').eq('wallet_address', data.buyer).single();
+        const { data: bData } = await supabase.from('profiles').select('organizations(name)').ilike('wallet_address', data.buyer).single();
         if (bData?.organizations?.name) buyerOrg = bData.organizations.name;
-        
-        const { data: sData } = await supabase.from('profiles').select('organizations(name)').eq('wallet_address', data.supplier).single();
+
+        const { data: sData } = await supabase.from('profiles').select('organizations(name)').ilike('wallet_address', data.supplier).single();
         if (sData?.organizations?.name) supplierOrg = sData.organizations.name;
       } catch (e) { console.error('Failed org lookup', e); }
 
@@ -158,6 +158,17 @@ export default function BuyerDashboard() {
     }
   };
 
+  // Auto-poll status every 5s when a receivable panel is open (picks up mobile delivery updates)
+  useEffect(() => {
+    if (!receivableId) return;
+    const interval = setInterval(() => {
+      fetchReceivable();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [receivableId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
+
   const handleAction = async (actionType: 'ACCEPT') => {
     if (!activeReceivable) return;
     setIsSubmitting(true);
@@ -167,11 +178,23 @@ export default function BuyerDashboard() {
         throw new Error("Wallet not connected. Please connect your wallet first.");
       }
       const contract = getAgriCredXContract(signer);
-      const tx = await contract.buyerAccept(activeReceivable.id, { 
-        value: ethers.parseEther(activeReceivable.amount.toString()) 
+      const tx = await contract.buyerAccept(activeReceivable.id, {
+        value: ethers.parseEther(activeReceivable.amount.toString())
       });
       setTxHash(tx.hash);
       await tx.wait();
+
+      // Extract commodity for PDF generation
+      let pdfCommodity = 'Premium Agri Product';
+      try {
+        const reqStr = localStorage.getItem('agricredx_buyer_requests');
+        if (reqStr && activeReceivable.invoiceId) {
+          const reqs = JSON.parse(reqStr);
+          const reqId = activeReceivable.invoiceId.replace('INV-', '');
+          const matchedReq = reqs.find((req: any) => req.id === reqId);
+          if (matchedReq) pdfCommodity = matchedReq.quantity + ' ' + matchedReq.commodity;
+        }
+      } catch (e) { }
 
       // Trigger automatic dynamic PDF generation on local server
       try {
@@ -182,7 +205,8 @@ export default function BuyerDashboard() {
             txId: activeReceivable.id.toString(),
             amount: activeReceivable.amount.toString(),
             buyerName: activeReceivable.buyerName || 'ABC Foods',
-            supplierName: activeReceivable.supplierName || 'Demo Basmati Exporter'
+            supplierName: activeReceivable.supplierName || 'Demo Basmati Exporter',
+            commodity: pdfCommodity
           })
         });
       } catch (err) {
@@ -200,7 +224,9 @@ export default function BuyerDashboard() {
     }
   };
 
-  const handleVerifyDocument = async (files: FileList) => {
+  const [verifyDocs, setVerifyDocs] = useState<{ po?: File, invoice?: File, qa?: File }>({});
+
+  const handleVerifyDocument = async (files: File[]) => {
     if (!activeReceivable || !activeReceivable.attestationDigest) return;
     if (files.length !== 3) {
       alert("Please select exactly 3 documents for verification: Invoice, PO, and Quality Assurance Certificate.");
@@ -237,19 +263,19 @@ export default function BuyerDashboard() {
   };
 
   const statusMap = [
-    "QUOTATION_SENT", 
-    "BUYER_ACCEPTED", 
-    "DOCUMENTATION_UPLOADED", 
-    "PACKED", 
-    "IN_TRANSIT", 
-    "DELIVERED", 
-    "VERIFIED", 
-    "ATTESTED", 
-    "FINANCEABLE", 
-    "FUNDED", 
-    "OUTSTANDING", 
-    "REPAID", 
-    "CLOSED", 
+    "QUOTATION_SENT",
+    "BUYER_ACCEPTED",
+    "DOCUMENTATION_UPLOADED",
+    "PACKED",
+    "IN_TRANSIT",
+    "DELIVERED",
+    "VERIFIED",
+    "ATTESTED",
+    "FINANCEABLE",
+    "FUNDED",
+    "OUTSTANDING",
+    "REPAID",
+    "CLOSED",
     "DISPUTED"
   ];
 
@@ -261,13 +287,13 @@ export default function BuyerDashboard() {
           <p className="text-emerald-100 mt-2 text-lg">Post purchase requirements, review verified invoices, and manage repayments.</p>
         </div>
         <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/3 -translate-y-1/4">
-          <svg width="300" height="300" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          <svg width="300" height="300" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
         </div>
       </div>
 
       {!isConnected && (
         <div className="p-4 bg-amber-50/80 backdrop-blur-sm border border-amber-200 rounded-xl text-amber-800 font-medium flex items-center shadow-sm">
-          <svg className="w-5 h-5 mr-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 9a1 1 0 012 0v4a1 1 0 11-2 0V9zm1-5a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>
+          <svg className="w-5 h-5 mr-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 9a1 1 0 012 0v4a1 1 0 11-2 0V9zm1-5a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" /></svg>
           Please connect your BridgeKey wallet to interact with the blockchain.
         </div>
       )}
@@ -276,7 +302,7 @@ export default function BuyerDashboard() {
         <div className="space-y-8 animate-fade-in">
           {/* Stats Widgets */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div 
+            <div
               className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 cursor-pointer hover:border-emerald-300 transition-colors"
               onClick={() => setShowPostedRequirements(!showPostedRequirements)}
             >
@@ -284,7 +310,7 @@ export default function BuyerDashboard() {
               <p className="text-3xl font-extrabold text-slate-900 mt-2">{openRequestsCount}</p>
               <p className="text-xs text-emerald-600 mt-1">Click to view your posted RFPs</p>
             </div>
-            <div 
+            <div
               className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 cursor-pointer hover:border-emerald-300 transition-colors"
               onClick={() => {
                 document.getElementById('receivables-table')?.scrollIntoView({ behavior: 'smooth' });
@@ -300,7 +326,7 @@ export default function BuyerDashboard() {
               <p className="text-xs text-emerald-600 mt-1">Value of delivered orders</p>
             </div>
           </div>
-          
+
           {showPostedRequirements && (
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-8 animate-fade-in">
               <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
@@ -341,7 +367,7 @@ export default function BuyerDashboard() {
               <h2 className="text-2xl font-bold text-slate-900">Inbound Shipments & Receivables</h2>
               <p className="text-sm text-slate-500">Review AI-extracted documents and cryptographically accept assets.</p>
             </div>
-            <button 
+            <button
               onClick={() => setShowRfpModal(true)}
               className="flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold transition-colors shadow-sm"
             >
@@ -350,254 +376,279 @@ export default function BuyerDashboard() {
             </button>
           </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          
-          {/* Search Panel */}
-          <div className="bg-white border border-slate-200/60 rounded-2xl shadow-sm p-6 flex flex-col hover:shadow-md transition-shadow">
-            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-              <svg className="w-5 h-5 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-              Lookup Receivable
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Receivable ID</label>
-                <input 
-                  type="number"
-                  value={receivableId}
-                  onChange={(e) => setReceivableId(e.target.value)}
-                  placeholder="e.g. 1"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-                />
+          <div className="grid md:grid-cols-3 gap-6">
+
+            {/* Search Panel */}
+            <div className="bg-white border border-slate-200/60 rounded-2xl shadow-sm p-6 flex flex-col hover:shadow-md transition-shadow">
+              <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                Lookup Receivable
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Receivable ID</label>
+                  <input
+                    type="number"
+                    value={receivableId}
+                    onChange={(e) => setReceivableId(e.target.value)}
+                    placeholder="e.g. 1"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                  />
+                </div>
+                <button
+                  onClick={fetchReceivable}
+                  disabled={!receivableId}
+                  className="w-full py-3 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 disabled:opacity-50 transition-colors shadow-sm"
+                >
+                  Fetch Details
+                </button>
               </div>
-              <button 
-                onClick={fetchReceivable}
-                disabled={!receivableId}
-                className="w-full py-3 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 disabled:opacity-50 transition-colors shadow-sm"
-              >
-                Fetch Details
-              </button>
             </div>
-          </div>
 
-          {/* Action Panel */}
-          <div className="md:col-span-2 bg-white border border-slate-200/60 rounded-2xl shadow-sm p-6 hover:shadow-md transition-shadow min-h-[300px]">
-            <h2 className="text-lg font-bold text-slate-800 mb-4">Receivable Action Center</h2>
-            
-            {!activeReceivable ? (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 pb-8">
-                <svg className="w-12 h-12 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                <p>Fetch a receivable to view available actions.</p>
-              </div>
-            ) : (
-              <div className="space-y-6 animate-fade-in">
-                {/* Receivable Details Grid */}
-                <div className="grid grid-cols-2 gap-4 p-5 bg-slate-50 rounded-xl border border-slate-100">
-                  <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Invoice ID</p>
-                    <p className="font-mono text-slate-800 font-medium">{activeReceivable.invoiceId}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Amount</p>
-                    <p className="font-bold text-emerald-600">{activeReceivable.amount} MSTC</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</p>
-                    {(() => {
-                      const style = getStatusStyle(activeReceivable.statusKey);
-                      return (
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold mt-1 ${style.bg} ${style.color}`}>
-                          {style.label}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Supplier</p>
-                    <p className="font-mono text-xs text-slate-600 truncate">{activeReceivable.supplier}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Assigned Buyer</p>
-                    <p className="font-mono text-xs text-slate-600 truncate">{activeReceivable.buyer}</p>
-                  </div>
+            {/* Action Panel */}
+            <div className="md:col-span-2 bg-white border border-slate-200/60 rounded-2xl shadow-sm p-6 hover:shadow-md transition-shadow min-h-[300px]">
+              <h2 className="text-lg font-bold text-slate-800 mb-4">Receivable Action Center</h2>
+
+              {!activeReceivable ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 pb-8">
+                  <svg className="w-12 h-12 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                  <p>Fetch a receivable to view available actions.</p>
                 </div>
+              ) : (
+                <div className="space-y-6 animate-fade-in">
+                  {/* Receivable Details Grid */}
+                  <div className="grid grid-cols-2 gap-4 p-5 bg-slate-50 rounded-xl border border-slate-100">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Invoice ID</p>
+                      <p className="font-mono text-slate-800 font-medium">{activeReceivable.invoiceId}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Amount</p>
+                      <p className="font-bold text-emerald-600">{activeReceivable.amount} MSTC</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</p>
+                      {(() => {
+                        const style = getStatusStyle(activeReceivable.statusKey);
+                        return (
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold mt-1 ${style.bg} ${style.color}`}>
+                            {style.label}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Supplier</p>
+                      <p className="font-mono text-xs text-slate-600 truncate">{activeReceivable.supplier}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Assigned Buyer</p>
+                      <p className="font-mono text-xs text-slate-600 truncate">{activeReceivable.buyer}</p>
+                    </div>
+                  </div>
 
-                {/* Lifecycle Progress Tracker */}
-                <div className="bg-slate-50 rounded-xl border border-slate-100 p-4">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Lifecycle Progress</p>
-                  <div className="flex items-center gap-1 overflow-x-auto pb-1">
-                    {['QUOTATION_SENT', 'BUYER_ACCEPTED', 'DOCUMENTATION_UPLOADED', 'PACKED', 'IN_TRANSIT', 'DELIVERED'].map((step, idx) => {
-                      const currentIdx = activeReceivable.status;
-                      const isCompleted = idx < currentIdx;
-                      const isCurrent = idx === currentIdx;
-                      return (
-                        <React.Fragment key={step}>
-                          <div className={`flex flex-col items-center min-w-[70px] ${isCurrent ? 'scale-105' : ''}`}>
-                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
-                              isCompleted ? 'bg-emerald-500 border-emerald-500 text-white' :
-                              isCurrent ? 'bg-white border-emerald-500 text-emerald-600 ring-2 ring-emerald-200' :
-                              'bg-slate-100 border-slate-300 text-slate-400'
-                            }`}>
-                              {isCompleted ? (
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                              ) : (
-                                idx + 1
-                              )}
+                  {/* Lifecycle Progress Tracker */}
+                  <div className="bg-slate-50 rounded-xl border border-slate-100 p-4">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Lifecycle Progress</p>
+                    <div className="flex items-center gap-1 overflow-x-auto pb-1">
+                      {['QUOTATION_SENT', 'BUYER_ACCEPTED', 'DOCUMENTATION_UPLOADED', 'PACKED', 'IN_TRANSIT', 'DELIVERED'].map((step, idx) => {
+                        const currentIdx = activeReceivable.status;
+                        const isCompleted = idx <= currentIdx;
+                        const isCurrent = idx === currentIdx;
+                        return (
+                          <React.Fragment key={step}>
+                            <div className={`flex flex-col items-center min-w-[70px] ${isCurrent ? 'scale-105' : ''}`}>
+                              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
+                                isCompleted ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-slate-100 border-slate-300 text-slate-400'
+                              } ${isCurrent ? 'ring-4 ring-emerald-100' : ''}`}>
+                                {isCompleted ? (
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                ) : (
+                                  idx + 1
+                                )}
+                              </div>
+                              <p className={`text-[9px] mt-1 text-center leading-tight font-medium ${isCompleted ? 'text-emerald-700' : 'text-slate-400'}`}>
+                                {step.replace(/_/g, ' ').replace('DOCUMENTATION ', 'DOCS ')}
+                              </p>
                             </div>
-                            <p className={`text-[9px] mt-1 text-center leading-tight font-medium ${
-                              isCurrent ? 'text-emerald-700' : isCompleted ? 'text-emerald-600' : 'text-slate-400'
-                            }`}>
-                              {step.replace(/_/g, ' ').replace('DOCUMENTATION ', 'DOCS ')}
-                            </p>
+                            {idx < 5 && (
+                              <div className={`flex-1 h-0.5 min-w-[12px] ${isCompleted ? 'bg-emerald-500' : 'bg-slate-200'}`}></div>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Acceptance Confirmation (shown after buyer accepted) */}
+                  {activeReceivable.status >= 1 && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                      <div className="flex items-center">
+                        <svg className="w-5 h-5 text-emerald-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <div>
+                          <p className="font-semibold text-emerald-900 text-sm">Quotation Accepted — Escrow Locked</p>
+                          <p className="text-xs text-emerald-700 mt-0.5">
+                            {activeReceivable.amount} MSTC is locked in the smart contract escrow.
+                            {activeReceivable.status === 1 && ' Waiting for supplier to upload documentation.'}
+                            {activeReceivable.status === 2 && ' Supplier has uploaded and hashed documents. Ready for logistics.'}
+                            {activeReceivable.status >= 3 && activeReceivable.status <= 4 && ' Order is in the logistics pipeline.'}
+                            {activeReceivable.status === 5 && ' Order delivered! Escrow has been released to supplier.'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cryptographic Attestation Widget */}
+                  {activeReceivable.status >= 2 && (
+                    <div className="bg-slate-900 rounded-xl p-5 border border-slate-800 shadow-inner">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-slate-200 font-semibold text-sm flex items-center">
+                          <svg className="w-4 h-4 mr-2 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                          Cryptographic Attestation
+                        </h3>
+                        <span className="bg-emerald-500/20 text-emerald-400 text-xs font-bold px-2 py-0.5 rounded border border-emerald-500/30">100% SECURE</span>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 flex justify-between items-center">
+                          <div>
+                            <p className="text-slate-400 text-xs mb-1">AI Pipeline Verification</p>
+                            <p className="text-slate-300 text-xs font-mono">Invoice, PO, QA Certificate Matches Validated</p>
                           </div>
-                          {idx < 5 && (
-                            <div className={`flex-1 h-0.5 min-w-[12px] ${isCompleted ? 'bg-emerald-500' : 'bg-slate-200'}`}></div>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-                  </div>
-                </div>
+                          <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                        </div>
+                        <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                          <p className="text-slate-400 text-xs mb-1">On-Chain Document Hash (keccak256)</p>
+                          <p className="text-emerald-400 text-xs font-mono truncate">{activeReceivable.attestationDigest}</p>
+                        </div>
+                        {/* Document Hash Verification */}
+                        <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                          <p className="text-slate-400 text-xs mb-2">Verify Supplier Documents Against On-Chain Hash</p>
+                          <div className="flex flex-col gap-2 mb-3">
+                            <label className="text-xs flex items-center gap-2 cursor-pointer">
+                              <div className={`px-2 py-1 rounded border ${verifyDocs.po ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50' : 'bg-slate-700/50 text-slate-300 border-slate-600 hover:bg-slate-700'}`}>
+                                {verifyDocs.po ? '✓ PO Attached' : '+ Select PO'}
+                              </div>
+                              <input type="file" className="hidden" accept=".pdf" onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) setVerifyDocs(prev => ({ ...prev, po: file }));
+                              }} />
+                            </label>
 
-                {/* Acceptance Confirmation (shown after buyer accepted) */}
-                {activeReceivable.status >= 1 && (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                    <div className="flex items-center">
-                      <svg className="w-5 h-5 text-emerald-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      <div>
-                        <p className="font-semibold text-emerald-900 text-sm">Quotation Accepted — Escrow Locked</p>
-                        <p className="text-xs text-emerald-700 mt-0.5">
-                          {activeReceivable.amount} MSTC is locked in the smart contract escrow. 
-                          {activeReceivable.status === 1 && ' Waiting for supplier to upload documentation.'}
-                          {activeReceivable.status === 2 && ' Supplier has uploaded and hashed documents. Ready for logistics.'}
-                          {activeReceivable.status >= 3 && activeReceivable.status <= 4 && ' Order is in the logistics pipeline.'}
-                          {activeReceivable.status === 5 && ' Order delivered! Escrow has been released to supplier.'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                            <label className="text-xs flex items-center gap-2 cursor-pointer">
+                              <div className={`px-2 py-1 rounded border ${verifyDocs.invoice ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50' : 'bg-slate-700/50 text-slate-300 border-slate-600 hover:bg-slate-700'}`}>
+                                {verifyDocs.invoice ? '✓ Invoice Attached' : '+ Select Invoice'}
+                              </div>
+                              <input type="file" className="hidden" accept=".pdf" onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) setVerifyDocs(prev => ({ ...prev, invoice: file }));
+                              }} />
+                            </label>
 
-                {/* Cryptographic Attestation Widget */}
-                {activeReceivable.status >= 2 && (
-                <div className="bg-slate-900 rounded-xl p-5 border border-slate-800 shadow-inner">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-slate-200 font-semibold text-sm flex items-center">
-                      <svg className="w-4 h-4 mr-2 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                      Cryptographic Attestation
-                    </h3>
-                    <span className="bg-emerald-500/20 text-emerald-400 text-xs font-bold px-2 py-0.5 rounded border border-emerald-500/30">100% SECURE</span>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 flex justify-between items-center">
-                      <div>
-                        <p className="text-slate-400 text-xs mb-1">AI Pipeline Verification</p>
-                        <p className="text-slate-300 text-xs font-mono">Invoice, PO, QA Certificate Matches Validated</p>
-                      </div>
-                      <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                    </div>
-                    <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
-                      <p className="text-slate-400 text-xs mb-1">On-Chain Document Hash (keccak256)</p>
-                      <p className="text-emerald-400 text-xs font-mono truncate">{activeReceivable.attestationDigest}</p>
-                    </div>
-                    {/* Document Hash Verification */}
-                    <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
-                      <p className="text-slate-400 text-xs mb-2">Verify a Supplier Document Against On-Chain Hash</p>
-                      <div className="flex gap-2">
-                        <label className={`inline-flex items-center text-xs bg-rose-500/20 text-indigo-300 px-3 py-1.5 rounded hover:bg-rose-500/30 transition-colors border border-indigo-500/30 font-semibold cursor-pointer ${verifyingDoc ? 'opacity-50 pointer-events-none' : ''}`}>
-                          <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                          {verifyingDoc ? 'Verifying...' : 'Upload & Verify Document'}
-                          <input 
-                            type="file" 
-                            multiple
-                            className="hidden"
-                            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                            onChange={(e) => {
-                              const files = e.target.files;
-                              if (files && files.length > 0) handleVerifyDocument(files);
-                              e.target.value = '';
-                            }}
-                          />
-                        </label>
-                        
-                        <button 
-                          onClick={() => {
-                            const baseUrl = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
-                            const url = `${baseUrl}/certificate/${activeReceivable.id}`;
-                            window.open(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`, '_blank', 'width=400,height=400');
-                            window.open(`/certificate/${activeReceivable.id}`, '_blank');
-                          }}
-                          className="inline-flex items-center text-xs bg-emerald-500/20 text-emerald-300 px-3 py-1.5 rounded hover:bg-emerald-500/30 transition-colors border border-emerald-500/30 font-semibold"
-                          title="Generate QR code linking to the public NFT certificate"
-                        >
-                          <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-                          View NFT Cert (QR)
-                        </button>
+                            <label className="text-xs flex items-center gap-2 cursor-pointer">
+                              <div className={`px-2 py-1 rounded border ${verifyDocs.qa ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50' : 'bg-slate-700/50 text-slate-300 border-slate-600 hover:bg-slate-700'}`}>
+                                {verifyDocs.qa ? '✓ QA Cert Attached' : '+ Select QA Certificate'}
+                              </div>
+                              <input type="file" className="hidden" accept=".pdf" onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) setVerifyDocs(prev => ({ ...prev, qa: file }));
+                              }} />
+                            </label>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <button
+                              disabled={!(verifyDocs.po && verifyDocs.invoice && verifyDocs.qa) || verifyingDoc}
+                              onClick={() => {
+                                if (verifyDocs.po && verifyDocs.invoice && verifyDocs.qa) {
+                                  // Typecast to bypass TS error
+                                  handleVerifyDocument([verifyDocs.po, verifyDocs.invoice, verifyDocs.qa] as any);
+                                }
+                              }}
+                              className="inline-flex items-center text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1.5 rounded hover:bg-indigo-500/30 transition-colors border border-indigo-500/30 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                              {verifyingDoc ? 'Verifying...' : 'Verify Combine Hash'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                const baseUrl = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
+                                const url = `${baseUrl}/certificate/${activeReceivable.id}`;
+                                window.open(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`, '_blank', 'width=400,height=400');
+                                window.open(`/certificate/${activeReceivable.id}`, '_blank');
+                              }}
+                              className="inline-flex items-center text-xs bg-emerald-500/20 text-emerald-300 px-3 py-1.5 rounded hover:bg-emerald-500/30 transition-colors border border-emerald-500/30 font-semibold"
+                              title="Generate QR code linking to the public NFT certificate"
+                            >
+                              <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                              View NFT Cert (QR)
+                            </button>
+                          </div>
+                        </div>
+                        {/* Verify Result inline */}
+                        {verifyResult && (
+                          <div className={`p-3 rounded-lg border ${verifyResult.match ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                            <p className={`text-xs font-bold mb-1 ${verifyResult.match ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {verifyResult.match ? '✓ HASH MATCH — Document Integrity Verified' : '✗ HASH MISMATCH — Document Tampered or Different File'}
+                            </p>
+                            <p className="text-slate-400 text-[10px] font-mono truncate">File: {verifyResult.fileHash}</p>
+                            <p className="text-slate-400 text-[10px] font-mono truncate">Chain: {verifyResult.chainHash}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
-                    {/* Verify Result inline */}
-                    {verifyResult && (
-                      <div className={`p-3 rounded-lg border ${verifyResult.match ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
-                        <p className={`text-xs font-bold mb-1 ${verifyResult.match ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {verifyResult.match ? '✓ HASH MATCH — Document Integrity Verified' : '✗ HASH MISMATCH — Document Tampered or Different File'}
-                        </p>
-                        <p className="text-slate-400 text-[10px] font-mono truncate">File: {verifyResult.fileHash}</p>
-                        <p className="text-slate-400 text-[10px] font-mono truncate">Chain: {verifyResult.chainHash}</p>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-4">
+                    {activeReceivable.status === 0 /* QUOTATION_SENT */ && (
+                      <button
+                        onClick={() => handleAction('ACCEPT')}
+                        disabled={isSubmitting}
+                        className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-600/20 disabled:opacity-50 transition-all"
+                      >
+                        {isSubmitting ? 'Processing...' : 'Accept Quotation & Lock Escrow'}
+                      </button>
+                    )}
+                    {activeReceivable.status === 1 && (
+                      <div className="w-full text-center p-3 text-sm bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 font-medium">
+                        ✓ Quotation Accepted. Awaiting supplier document upload.
+                      </div>
+                    )}
+                    {activeReceivable.status === 2 && (
+                      <div className="w-full text-center p-3 text-sm bg-red-50 border border-red-200 rounded-lg text-red-800 font-medium">
+                        📄 Documents Uploaded & Hashed. Awaiting logistics pickup.
+                      </div>
+                    )}
+                    {(activeReceivable.status === 3 || activeReceivable.status === 4) && (
+                      <div className="w-full text-center p-3 text-sm bg-orange-50 border border-orange-200 rounded-lg text-orange-700 font-medium">
+                        🚚 Order is {activeReceivable.status === 3 ? 'packed and ready for dispatch' : 'in transit to you'}.
+                      </div>
+                    )}
+                    {activeReceivable.status === 5 && (
+                      <div className="w-full text-center p-3 text-sm bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 font-medium">
+                        ✅ Delivered! Escrow of {activeReceivable.amount} MSTC released to supplier.
+                      </div>
+                    )}
+                    {activeReceivable.status > 5 && (
+                      <div className="w-full text-center p-3 text-sm text-slate-500 bg-slate-50 rounded-lg">
+                        Current state: {statusMap[activeReceivable.status]}
                       </div>
                     )}
                   </div>
-                </div>
-                )}
 
-                {/* Action Buttons */}
-                <div className="flex gap-4">
-                  {activeReceivable.status === 0 /* QUOTATION_SENT */ && (
-                    <button 
-                      onClick={() => handleAction('ACCEPT')}
-                      disabled={isSubmitting}
-                      className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-600/20 disabled:opacity-50 transition-all"
-                    >
-                      {isSubmitting ? 'Processing...' : 'Accept Quotation & Lock Escrow'}
-                    </button>
-                  )}
-                  {activeReceivable.status === 1 && (
-                    <div className="w-full text-center p-3 text-sm bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 font-medium">
-                      ✓ Quotation Accepted. Awaiting supplier document upload.
-                    </div>
-                  )}
-                  {activeReceivable.status === 2 && (
-                    <div className="w-full text-center p-3 text-sm bg-red-50 border border-red-200 rounded-lg text-red-800 font-medium">
-                      📄 Documents Uploaded & Hashed. Awaiting logistics pickup.
-                    </div>
-                  )}
-                  {(activeReceivable.status === 3 || activeReceivable.status === 4) && (
-                    <div className="w-full text-center p-3 text-sm bg-orange-50 border border-orange-200 rounded-lg text-orange-700 font-medium">
-                      🚚 Order is {activeReceivable.status === 3 ? 'packed and ready for dispatch' : 'in transit to you'}.
-                    </div>
-                  )}
-                  {activeReceivable.status === 5 && (
-                    <div className="w-full text-center p-3 text-sm bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 font-medium">
-                      ✅ Delivered! Escrow of {activeReceivable.amount} MSTC released to supplier.
-                    </div>
-                  )}
-                  {activeReceivable.status > 5 && (
-                    <div className="w-full text-center p-3 text-sm text-slate-500 bg-slate-50 rounded-lg">
-                      Current state: {statusMap[activeReceivable.status]}
+                  {txHash && (
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-800 break-all font-mono">
+                      <strong>TX Confirmed:</strong> {txHash}
                     </div>
                   )}
                 </div>
-                
-                {txHash && (
-                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-800 break-all font-mono">
-                    <strong>TX Confirmed:</strong> {txHash}
-                  </div>
-                )}
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
-        </div>
       )}
-      
+
       {isConnected && (
         <div id="receivables-table" className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mt-8">
           <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
@@ -619,7 +670,7 @@ export default function BuyerDashboard() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 animate-fade-in">
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Post Procurement Requirement</h2>
             <p className="text-sm text-slate-500 mb-6">Suppliers will bid or directly fulfill this requirement by uploading invoices.</p>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Buyer / Company Name</label>
@@ -647,13 +698,13 @@ export default function BuyerDashboard() {
             </div>
 
             <div className="flex gap-3 mt-8">
-              <button 
+              <button
                 onClick={() => setShowRfpModal(false)}
                 className="flex-1 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200"
               >
                 Cancel
               </button>
-              <button 
+              <button
                 onClick={() => {
                   if (Number(walletBalance) < Number(rfpAmount)) {
                     alert(`Insufficient MSTC Balance!\n\nYour balance: ${Number(walletBalance).toFixed(4)} MSTC\nRequired: ${rfpAmount} MSTC\n\nPlease add more MSTC to your wallet before posting this requirement.`);
@@ -745,14 +796,33 @@ function BuyerReceivablesTable({ onSelect, refreshKey }: { onSelect: (id: string
             return (
               <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50">
                 <td className="px-4 py-3 font-mono text-xs text-slate-500">REC-2026-000{r.on_chain_id || 'X'}</td>
-                <td className="px-4 py-3 font-medium text-slate-900">{r.invoice_id}</td>
+                <td className="px-4 py-3">
+                  <p className="font-medium text-slate-900">{r.invoice_id}</p>
+                  {(() => {
+                    let commodity = '';
+                    try {
+                      const reqStr = localStorage.getItem('agricredx_buyer_requests');
+                      if (reqStr) {
+                        const reqs = JSON.parse(reqStr);
+                        const reqId = r.invoice_id.replace('INV-', '');
+                        const matchedReq = reqs.find((req: any) => req.id === reqId);
+                        if (matchedReq) commodity = matchedReq.quantity + ' ' + matchedReq.commodity;
+                      }
+                    } catch (e) { }
+                    if (!commodity) commodity = 'Agri Product';
+
+                    return (
+                      <p className="text-xs text-slate-500 mt-1 font-semibold">{commodity}</p>
+                    );
+                  })()}
+                </td>
                 <td className="px-4 py-3 font-mono">{r.amount} {r.currency}</td>
                 <td className="px-4 py-3">{new Date(r.due_date).toLocaleDateString()}</td>
                 <td className="px-4 py-3">
                   <span className={`text-xs font-semibold px-2.5 py-0.5 rounded ${style.bg} ${style.color}`}>{style.label}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <button 
+                  <button
                     onClick={() => onSelect(r.on_chain_id?.toString() || '')}
                     disabled={!r.on_chain_id}
                     className="text-xs bg-slate-900 text-white px-3 py-1 rounded hover:bg-slate-800 disabled:opacity-50"

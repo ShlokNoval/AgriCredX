@@ -27,15 +27,22 @@ export default function DeliveryScanner() {
       // Import ethers and get local provider
       const { ethers } = await import('ethers');
       const { getReadOnlyProvider, getAgriCredXContract } = await import('../lib/contract');
-      const provider = getReadOnlyProvider();
       
-      // HACKATHON DEMO ONLY: We hardcode a funded testnet private key here so the 
-      // warehouse worker's phone can submit the transaction without needing a wallet extension.
-      // IN PRODUCTION: This should use a backend relayer or account abstraction.
-      const DEMO_RELAYER_KEY = "0x4f8b46e3952872a6bddb6ff7674318ce6e6c0df141e744e2265535fabe02dc20";
-      const localSigner = new ethers.Wallet(DEMO_RELAYER_KEY, provider);
+      let activeSigner: any;
+      if (typeof window !== 'undefined' && (window as any).ethereum) {
+        // If they have BridgeKey/MetaMask installed, use their connected wallet
+        const browserProvider = new ethers.BrowserProvider((window as any).ethereum);
+        activeSigner = await browserProvider.getSigner();
+      } else {
+        // HACKATHON DEMO: Mobile phone without wallet — use a backend relayer.
+        // It MUST point to MST Testnet to stay on the same chain as the desktop dashboards!
+        const rpcUrl = import.meta.env.VITE_LOCAL_RPC_URL || 'https://testnetrpc.mstblockchain.com';
+        const fallbackProvider = new ethers.JsonRpcProvider(rpcUrl);
+        const DEMO_RELAYER_KEY = import.meta.env.VITE_DEMO_RELAYER_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+        activeSigner = new ethers.Wallet(DEMO_RELAYER_KEY, fallbackProvider);
+      }
       
-      const contract = getAgriCredXContract(localSigner);
+      const contract = getAgriCredXContract(activeSigner);
       
       // Call the updateLogisticsStatus function on the blockchain
       // 3 = PACKED, 4 = IN_TRANSIT, 5 = DELIVERED
@@ -44,7 +51,14 @@ export default function DeliveryScanner() {
 
       if (photoDataUrl) {
         localStorage.setItem(`deliveryProof_${id}_${logisticsPhase}`, photoDataUrl);
+        // Also sync it to the backend so the desktop dashboards can see it!
+        fetch('/api/upload-proof', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, phase: logisticsPhase, photoDataUrl })
+        }).catch(e => console.error("Failed to sync proof", e));
       }
+      
       if (Number(logisticsPhase) === 5) {
         localStorage.setItem(`grn_generated_${id}`, new Date().toISOString());
       }

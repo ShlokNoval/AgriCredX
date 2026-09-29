@@ -12,7 +12,7 @@ export default function SupplierDashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [createdReceivable, setCreatedReceivable] = useState<any>(null);
-  
+
   // Marketplace State
   const [openRequests, setOpenRequests] = useState<any[]>([]);
 
@@ -26,7 +26,7 @@ export default function SupplierDashboard() {
 
   React.useEffect(() => {
     setOpenRequests(JSON.parse(localStorage.getItem('agricredx_buyer_requests') || '[]').filter((r: any) => r.status === 'OPEN'));
-    
+
     // Fetch Dynamic Stats from Smart Contract
     const fetchStats = async () => {
       try {
@@ -51,10 +51,10 @@ export default function SupplierDashboard() {
     };
     fetchStats();
   }, [tableRefreshKey]);
-  
+
   const handleCreateReceivable = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     setIsSubmitting(true);
     setTxHash(null);
     try {
@@ -62,18 +62,18 @@ export default function SupplierDashboard() {
         throw new Error("Wallet not connected. Please connect your wallet first.");
       }
       const contract = getAgriCredXContract(signer);
-      
+
       const parsedAmount = ethers.parseEther(amount);
       const dueDateTimestamp = Math.floor(Date.now() / 1000) + (parseInt(dueDateDays) * 24 * 60 * 60);
-      
+
       console.log("Creating receivable with invoice ID:", invoiceId);
       const invoiceDocUri = "ipfs://QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG";
       const tx = await contract.createReceivable(invoiceId, buyerAddress, parsedAmount, dueDateTimestamp, invoiceDocUri);
       setTxHash(tx.hash);
-      
+
       const receipt = await tx.wait(); // Wait for confirmation
       console.log("Transaction confirmed!");
-      
+
       // Look for ReceivableCreated event
       const iface = new ethers.Interface(contract.interface.fragments);
       let newReceivableId = null;
@@ -81,7 +81,7 @@ export default function SupplierDashboard() {
         try {
           const parsedLog = iface.parseLog(log);
           if (parsedLog && parsedLog.name === 'ReceivableCreated') {
-             newReceivableId = parsedLog.args[0]; // id is the first arg
+            newReceivableId = parsedLog.args[0]; // id is the first arg
           }
         } catch (e) {
           // Ignore logs not matching our interface
@@ -89,19 +89,19 @@ export default function SupplierDashboard() {
       }
 
       if (newReceivableId) {
-         // Read back the state from the local chain
-         const readContract = getReadOnlyContract();
-         const receivableData = await readContract.receivables(newReceivableId);
-         setCreatedReceivable({
-           id: newReceivableId.toString(),
-           invoiceId: receivableData.invoiceId,
-           amount: ethers.formatEther(receivableData.amount),
-           buyer: receivableData.buyer,
-           dueDate: receivableData.dueDate.toString(),
-           status: Number(receivableData.status) === 0 ? 'CREATED' : 'UNKNOWN'
-         });
+        // Read back the state from the local chain
+        const readContract = getReadOnlyContract();
+        const receivableData = await readContract.receivables(newReceivableId);
+        setCreatedReceivable({
+          id: newReceivableId.toString(),
+          invoiceId: receivableData.invoiceId,
+          amount: ethers.formatEther(receivableData.amount),
+          buyer: receivableData.buyer,
+          dueDate: receivableData.dueDate.toString(),
+          status: Number(receivableData.status) === 0 ? 'CREATED' : 'UNKNOWN'
+        });
       }
-      
+
       setBuyerAddress('');
       setAmount('');
       setInvoiceId('');
@@ -123,13 +123,13 @@ export default function SupplierDashboard() {
           <p className="text-blue-100 mt-2 text-lg">Manage receivables, tokenize invoices, and request financing instantly.</p>
         </div>
         <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
-          <svg width="300" height="300" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+          <svg width="300" height="300" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" /></svg>
         </div>
       </div>
 
       {!isConnected && (
         <div className="p-4 bg-amber-50/80 backdrop-blur-sm border border-amber-200 rounded-xl text-amber-800 font-medium flex items-center shadow-sm">
-          <svg className="w-5 h-5 mr-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 9a1 1 0 012 0v4a1 1 0 11-2 0V9zm1-5a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>
+          <svg className="w-5 h-5 mr-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 9a1 1 0 012 0v4a1 1 0 11-2 0V9zm1-5a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" /></svg>
           Please connect your BridgeKey wallet to interact with your receivables.
         </div>
       )}
@@ -193,7 +193,7 @@ export default function SupplierDashboard() {
                     <td className="px-6 py-4 font-mono font-bold text-emerald-600">{req.amount} MSTC</td>
                     <td className="px-6 py-4">{req.deliveryDate}</td>
                     <td className="px-6 py-4 text-right">
-                      <button 
+                      <button
                         onClick={() => {
                           // Auto-fill ALL fields from the selected requirement
                           setBuyerAddress(req.buyer);
@@ -230,7 +230,7 @@ export default function SupplierDashboard() {
             <form onSubmit={handleCreateReceivable} className="space-y-4 max-w-lg">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Invoice ID</label>
-                <input 
+                <input
                   type="text"
                   required
                   value={invoiceId}
@@ -242,7 +242,7 @@ export default function SupplierDashboard() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Buyer Wallet Address</label>
-                <input 
+                <input
                   type="text"
                   required
                   value={buyerAddress}
@@ -251,10 +251,10 @@ export default function SupplierDashboard() {
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Amount (MSTC)</label>
-                <input 
+                <input
                   type="number"
                   required
                   step="any"
@@ -267,7 +267,7 @@ export default function SupplierDashboard() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Due Date (Days from now)</label>
-                <input 
+                <input
                   type="number"
                   required
                   value={dueDateDays}
@@ -276,15 +276,15 @@ export default function SupplierDashboard() {
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none"
                 />
               </div>
-              
-              <button 
+
+              <button
                 type="submit"
                 disabled={isSubmitting || !buyerAddress || !amount || !invoiceId || !dueDateDays}
                 className="px-6 py-2 bg-red-700 text-white rounded-lg font-medium hover:bg-red-800 disabled:opacity-50 transition-colors"
               >
                 {isSubmitting ? 'Confirming on Chain...' : 'Send Quotation'}
               </button>
-              
+
               {txHash && (
                 <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 break-all">
                   Transaction confirmed: {txHash}
@@ -333,13 +333,13 @@ async function hashFileBytes(file: File): Promise<string> {
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  'QUOTATION_SENT':          { label: 'QUOTATION SENT',          color: 'bg-amber-100 text-amber-800' },
-  'BUYER_ACCEPTED':          { label: 'BUYER ACCEPTED',          color: 'bg-emerald-100 text-emerald-800' },
-  'DOCUMENTATION_UPLOADED':  { label: 'DOCS UPLOADED',           color: 'bg-red-100 text-red-800' },
-  'PACKED':                  { label: 'PACKED',                  color: 'bg-violet-100 text-violet-800' },
-  'IN_TRANSIT':              { label: 'IN TRANSIT',              color: 'bg-orange-100 text-orange-800' },
-  'DELIVERED':               { label: 'DELIVERED',               color: 'bg-emerald-200 text-emerald-900' },
-  'UNKNOWN':                 { label: 'UNKNOWN',                 color: 'bg-slate-100 text-slate-800' },
+  'QUOTATION_SENT': { label: 'QUOTATION SENT', color: 'bg-amber-100 text-amber-800' },
+  'BUYER_ACCEPTED': { label: 'BUYER ACCEPTED', color: 'bg-emerald-100 text-emerald-800' },
+  'DOCUMENTATION_UPLOADED': { label: 'DOCS UPLOADED', color: 'bg-red-100 text-red-800' },
+  'PACKED': { label: 'PACKED', color: 'bg-violet-100 text-violet-800' },
+  'IN_TRANSIT': { label: 'IN TRANSIT', color: 'bg-orange-100 text-orange-800' },
+  'DELIVERED': { label: 'DELIVERED', color: 'bg-emerald-200 text-emerald-900' },
+  'UNKNOWN': { label: 'UNKNOWN', color: 'bg-slate-100 text-slate-800' },
 };
 
 function statusFromEnum(n: number): string {
@@ -393,7 +393,9 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
     loadData();
   }, [refreshKey]);
 
-  const handleUploadDocs = async (id: string, files: FileList) => {
+  const [selectedDocs, setSelectedDocs] = useState<Record<string, { po?: File, invoice?: File, qa?: File }>>({});
+
+  const handleUploadDocs = async (id: string, files: File[]) => {
     try {
       if (!signer) {
         alert("Wallet not connected. Please connect your wallet first.");
@@ -407,7 +409,7 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
 
       // Sort files by name to ensure consistent hashing regardless of selection order
       const fileArray = Array.from(files).sort((a, b) => a.name.localeCompare(b.name));
-      
+
       let totalLength = 0;
       const buffers = await Promise.all(fileArray.map(async f => {
         const buf = new Uint8Array(await f.arrayBuffer());
@@ -430,7 +432,7 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
 
       setUploadResult({ id, hash: digest, txHash: tx.hash });
       console.log(`Documentation anchored on-chain. Digest: ${digest}`);
-      
+
       // Refresh the table to show updated status
       onUploaded();
     } catch (err: any) {
@@ -441,14 +443,16 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
     }
   };
 
-  const handleVerifyDocument = async (id: string, chainDigest: string, files: FileList) => {
+  const [verifyDocs, setVerifyDocs] = useState<Record<string, { po?: File, invoice?: File, qa?: File }>>({});
+
+  const handleVerifyDocument = async (id: string, chainDigest: string, files: File[]) => {
     try {
       if (files.length !== 3) {
         alert("Please select exactly 3 documents for verification.");
         return;
       }
       setVerifyingId(id);
-      
+
       const fileArray = Array.from(files).sort((a, b) => a.name.localeCompare(b.name));
       let totalLength = 0;
       const buffers = await Promise.all(fileArray.map(async f => {
@@ -503,10 +507,27 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
                   <td className="px-4 py-3">
                     <p className="font-medium text-slate-900">{r.invoice_id}</p>
                     {(() => {
+                      let commodity = '';
+                      try {
+                        const reqStr = localStorage.getItem('agricredx_buyer_requests');
+                        if (reqStr) {
+                          const reqs = JSON.parse(reqStr);
+                          const reqId = r.invoice_id.replace('INV-', '');
+                          const matchedReq = reqs.find((req: any) => req.id === reqId);
+                          if (matchedReq) commodity = matchedReq.quantity + ' ' + matchedReq.commodity;
+                        }
+                      } catch (e) { }
+                      if (!commodity) commodity = 'Agri Product';
+
+                      return (
+                        <p className="text-xs text-slate-500 mt-1 font-semibold">{commodity}</p>
+                      );
+                    })()}
+                    {(() => {
                       const addr = r.on_chain_id ? localStorage.getItem(`deliveryAddress_${r.on_chain_id}`) : null;
                       if (addr) return (
                         <div className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded text-[10px] leading-tight text-slate-600">
-                          <strong>Delivery Address:</strong><br/>{addr}
+                          <strong>Delivery Address:</strong><br />{addr}
                         </div>
                       );
                       return null;
@@ -522,51 +543,107 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
                     <div className="flex flex-col gap-2">
                       {/* Upload Docs button - only when BUYER_ACCEPTED */}
                       {r.on_chain_id && r.status === 'BUYER_ACCEPTED' && (
-                        <label 
-                          className={`flex items-center text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded hover:bg-emerald-200 transition-colors border border-emerald-200 font-semibold cursor-pointer ${isUploading === r.on_chain_id ? 'opacity-50 pointer-events-none' : ''}`}
-                          title="Select a document (Invoice/PO/QA Cert) to hash and anchor on-chain"
-                        >
-                          <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                          {isUploading === r.on_chain_id ? 'Hashing & Anchoring...' : 'Upload Docs & Hash'}
-                          <input 
-                            type="file" 
-                            multiple
-                            className="hidden"
-                            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                            onChange={(e) => {
-                              const files = e.target.files;
-                              if (files && files.length > 0) handleUploadDocs(r.on_chain_id, files);
-                              e.target.value = ''; // reset input
+                        <div className="flex flex-col gap-2 mt-2 p-3 bg-slate-50 border border-slate-200 rounded-md">
+                          <div className="text-xs font-semibold text-slate-700 mb-1">Required Documents for Escrow</div>
+
+                          <label className="text-xs flex items-center gap-2 cursor-pointer">
+                            <div className={`px-2 py-1 rounded border ${selectedDocs[r.on_chain_id]?.po ? 'bg-emerald-100 border-emerald-300 text-emerald-800 font-semibold' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-100'}`}>
+                              {selectedDocs[r.on_chain_id]?.po ? '✓ PO Attached' : '+ Attach Purchase Order'}
+                            </div>
+                            <input type="file" className="hidden" accept=".pdf" onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setSelectedDocs(prev => ({ ...prev, [r.on_chain_id]: { ...prev[r.on_chain_id], po: file } }));
+                            }} />
+                          </label>
+
+                          <label className="text-xs flex items-center gap-2 cursor-pointer">
+                            <div className={`px-2 py-1 rounded border ${selectedDocs[r.on_chain_id]?.invoice ? 'bg-emerald-100 border-emerald-300 text-emerald-800 font-semibold' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-100'}`}>
+                              {selectedDocs[r.on_chain_id]?.invoice ? '✓ Invoice Attached' : '+ Attach Invoice'}
+                            </div>
+                            <input type="file" className="hidden" accept=".pdf" onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setSelectedDocs(prev => ({ ...prev, [r.on_chain_id]: { ...prev[r.on_chain_id], invoice: file } }));
+                            }} />
+                          </label>
+
+                          <label className="text-xs flex items-center gap-2 cursor-pointer">
+                            <div className={`px-2 py-1 rounded border ${selectedDocs[r.on_chain_id]?.qa ? 'bg-emerald-100 border-emerald-300 text-emerald-800 font-semibold' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-100'}`}>
+                              {selectedDocs[r.on_chain_id]?.qa ? '✓ QA Cert Attached' : '+ Attach QA Certificate'}
+                            </div>
+                            <input type="file" className="hidden" accept=".pdf" onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setSelectedDocs(prev => ({ ...prev, [r.on_chain_id]: { ...prev[r.on_chain_id], qa: file } }));
+                            }} />
+                          </label>
+
+                          <button
+                            disabled={!(selectedDocs[r.on_chain_id]?.po && selectedDocs[r.on_chain_id]?.invoice && selectedDocs[r.on_chain_id]?.qa) || isUploading === r.on_chain_id}
+                            onClick={() => {
+                              const docs = selectedDocs[r.on_chain_id];
+                              if (docs.po && docs.invoice && docs.qa) {
+                                handleUploadDocs(r.on_chain_id, [docs.po, docs.invoice, docs.qa] as any);
+                              }
                             }}
-                          />
-                        </label>
+                            className="mt-1 bg-emerald-600 text-white text-xs font-bold py-1.5 px-3 rounded hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors shadow-sm"
+                          >
+                            {isUploading === r.on_chain_id ? 'Hashing & Anchoring...' : 'Submit & Hash Documents'}
+                          </button>
+                        </div>
                       )}
-                      
+
                       {/* Verify Document Hash - after docs uploaded */}
                       {r.on_chain_id && r.statusNum >= 2 && r.attestation_digest && r.attestation_digest !== ethers.ZeroHash && (
-                        <label
-                          className={`flex items-center text-xs bg-slate-100 text-slate-700 px-3 py-1.5 rounded hover:bg-rose-50 hover:text-rose-600 transition-colors border border-slate-200 font-semibold cursor-pointer ${verifyingId === r.on_chain_id ? 'opacity-50 pointer-events-none' : ''}`}
-                          title="Select a document to verify its hash against the on-chain digest"
-                        >
-                          <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                          {verifyingId === r.on_chain_id ? 'Verifying...' : 'Verify Doc Hash'}
-                          <input 
-                            type="file" 
-                            multiple
-                            className="hidden"
-                            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                            onChange={(e) => {
-                              const files = e.target.files;
-                              if (files && files.length > 0) handleVerifyDocument(r.on_chain_id, r.attestation_digest, files);
-                              e.target.value = '';
+                        <div className="flex flex-col gap-2 mt-2 p-3 bg-slate-50 border border-slate-200 rounded-md">
+                          <div className="text-xs font-semibold text-slate-700 mb-1">Verify On-Chain Hash</div>
+
+                          <label className="text-xs flex items-center gap-2 cursor-pointer">
+                            <div className={`px-2 py-1 rounded border ${verifyDocs[r.on_chain_id]?.po ? 'bg-emerald-100 border-emerald-300 text-emerald-800 font-semibold' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-100'}`}>
+                              {verifyDocs[r.on_chain_id]?.po ? '✓ PO Attached' : '+ Select PO'}
+                            </div>
+                            <input type="file" className="hidden" accept=".pdf" onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setVerifyDocs(prev => ({ ...prev, [r.on_chain_id]: { ...prev[r.on_chain_id], po: file } }));
+                            }} />
+                          </label>
+
+                          <label className="text-xs flex items-center gap-2 cursor-pointer">
+                            <div className={`px-2 py-1 rounded border ${verifyDocs[r.on_chain_id]?.invoice ? 'bg-emerald-100 border-emerald-300 text-emerald-800 font-semibold' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-100'}`}>
+                              {verifyDocs[r.on_chain_id]?.invoice ? '✓ Invoice Attached' : '+ Select Invoice'}
+                            </div>
+                            <input type="file" className="hidden" accept=".pdf" onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setVerifyDocs(prev => ({ ...prev, [r.on_chain_id]: { ...prev[r.on_chain_id], invoice: file } }));
+                            }} />
+                          </label>
+
+                          <label className="text-xs flex items-center gap-2 cursor-pointer">
+                            <div className={`px-2 py-1 rounded border ${verifyDocs[r.on_chain_id]?.qa ? 'bg-emerald-100 border-emerald-300 text-emerald-800 font-semibold' : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-100'}`}>
+                              {verifyDocs[r.on_chain_id]?.qa ? '✓ QA Cert Attached' : '+ Select QA Certificate'}
+                            </div>
+                            <input type="file" className="hidden" accept=".pdf" onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setVerifyDocs(prev => ({ ...prev, [r.on_chain_id]: { ...prev[r.on_chain_id], qa: file } }));
+                            }} />
+                          </label>
+
+                          <button
+                            disabled={!(verifyDocs[r.on_chain_id]?.po && verifyDocs[r.on_chain_id]?.invoice && verifyDocs[r.on_chain_id]?.qa) || verifyingId === r.on_chain_id}
+                            onClick={() => {
+                              const docs = verifyDocs[r.on_chain_id];
+                              if (docs.po && docs.invoice && docs.qa) {
+                                handleVerifyDocument(r.on_chain_id, r.attestation_digest, [docs.po, docs.invoice, docs.qa] as any);
+                              }
                             }}
-                          />
-                        </label>
+                            className="mt-1 bg-slate-100 text-slate-700 text-xs font-bold py-1.5 px-3 rounded hover:bg-rose-50 hover:text-rose-600 border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors shadow-sm"
+                          >
+                            {verifyingId === r.on_chain_id ? 'Verifying...' : 'Verify Combine Hash'}
+                          </button>
+                        </div>
                       )}
 
                       {/* Print QR - after docs uploaded and during logistics */}
                       {r.on_chain_id && (r.status === 'DOCUMENTATION_UPLOADED' || r.status === 'PACKED' || r.status === 'IN_TRANSIT') && (
-                        <button 
+                        <button
                           onClick={() => {
                             const baseUrl = window.location.origin;
                             const url = `${baseUrl}/delivery/${r.on_chain_id}?hash=${r.attestation_digest || 'unsigned'}`;
@@ -582,7 +659,7 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
 
                       {/* View NFT Certificate - after docs uploaded */}
                       {r.on_chain_id && r.statusNum >= 2 && (
-                        <button 
+                        <button
                           onClick={() => {
                             const baseUrl = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
                             const url = `${baseUrl}/certificate/${r.on_chain_id}`;
@@ -602,14 +679,20 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
                     {/* Logistics Proofs and GRN */}
                     {r.on_chain_id && r.statusNum >= 3 && (
                       <div className="mt-3 flex flex-col gap-2 border-t border-slate-200 pt-3">
-                        <button 
-                          onClick={() => {
-                            // Check for proofs in localStorage
-                            const phases = [3, 4, 5];
-                            const proofs = phases.map(p => ({
-                              phase: p,
-                              data: localStorage.getItem(`deliveryProof_${r.on_chain_id}_${p}`)
-                            })).filter(p => p.data);
+                        <button
+                          onClick={async () => {
+                            let proofs = [];
+                            try {
+                              const res = await fetch(`/api/get-proofs?id=${r.on_chain_id}`);
+                              const data = await res.json();
+                              const phases = [3, 4, 5];
+                              proofs = phases.map(p => ({
+                                phase: p,
+                                data: data[p] || localStorage.getItem(`deliveryProof_${r.on_chain_id}_${p}`)
+                              })).filter(p => p.data);
+                            } catch (err) {
+                              console.error("Failed to fetch proofs", err);
+                            }
 
                             if (proofs.length === 0) {
                               alert("No photographic proof was uploaded during logistics scanning.");
@@ -656,7 +739,7 @@ function SupplierReceivablesTable({ signer, refreshKey, onUploaded }: { signer: 
                         </button>
 
                         {r.statusNum >= 5 && localStorage.getItem(`grn_generated_${r.on_chain_id}`) && (
-                          <button 
+                          <button
                             onClick={() => {
                               const win = window.open("", "_blank");
                               const timestamp = localStorage.getItem(`grn_generated_${r.on_chain_id}`);

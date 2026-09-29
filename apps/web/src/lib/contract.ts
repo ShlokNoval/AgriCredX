@@ -7,24 +7,23 @@ export const CONTRACT_ADDRESS = import.meta.env.VITE_AGRICREDX_CONTRACT_ADDRESS 
 
 export const AgriCredXABI = AgriCredXArtifact.abi;
 
-// Local Hardhat RPC — Proxied through Vite so mobile devices (Ngrok) can reach it
-const LOCAL_RPC = import.meta.env.VITE_LOCAL_RPC_URL || '/rpc';
-
 /**
- * Returns a read-only provider connected directly to the local Hardhat node.
- * This avoids BridgeKey routing reads to MST Testnet where the contract doesn't exist.
+ * Returns a provider that ALWAYS points to the local Hardhat node via the /rpc proxy.
+ * This is used exclusively for READ operations (view/pure calls) so that all clients
+ * (desktop with BridgeKey, mobile without wallet) read from the same chain where the
+ * contract is deployed and where the mobile delivery scanner writes to.
+ * 
+ * NOTE: The /rpc path is proxied through Vite → localhost:8545 (Hardhat).
+ *       Ngrok exposes this so mobile devices can reach it too.
  */
 export function getReadOnlyProvider(): ethers.Provider {
-  // If a Web3 wallet is available, use it for reads so we are on the same network as writes (e.g. MST Testnet)
+  // 1. If wallet exists (BridgeKey/MetaMask), use it so we read from the same network we write to (MST Testnet)
   if (typeof window !== 'undefined' && (window as any).ethereum) {
     return new ethers.BrowserProvider((window as any).ethereum);
   }
   
-  let rpcUrl = LOCAL_RPC;
-  // ethers.js requires an absolute URL, so if it's relative like '/rpc', prepend the origin
-  if (rpcUrl.startsWith('/')) {
-    rpcUrl = `${window.location.origin}${rpcUrl}`;
-  }
+  // 2. Fallback to MST Testnet RPC for mobile devices without a wallet
+  const rpcUrl = import.meta.env.VITE_LOCAL_RPC_URL || 'https://testnetrpc.mstblockchain.com';
   return new ethers.JsonRpcProvider(rpcUrl);
 }
 
