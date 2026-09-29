@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase';
 import { ShieldCheck, Users, Activity, LogOut, Flag, Trash2, CheckCircle2, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+import { getReadOnlyContract } from '../lib/contract';
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState({ users: 0, receivables: 0 });
   const [users, setUsers] = useState<any[]>([]);
@@ -18,21 +20,24 @@ export default function AdminDashboard() {
     setRemovedIds(savedRemoved);
 
     async function loadData() {
-      // Load general stats
-      const { count: rCount } = await supabase.from('receivables').select('*', { count: 'exact', head: true });
-      
-      // Load users
-      const { data: profiles } = await supabase.from('profiles').select(`
-        id, email, role, wallet_address,
-        organizations (name, type)
-      `);
+      try {
+        // Load general stats from smart contract directly
+        const contract = getReadOnlyContract();
+        const rCount = await contract.receivableCount();
+        
+        // Load users from local demo API
+        const res = await fetch('/api/admin-users');
+        const profiles = await res.json();
 
-      if (profiles) {
-        setUsers(profiles);
-        setStats({
-          users: profiles.length || 0,
-          receivables: rCount || 0
-        });
+        if (profiles) {
+          setUsers(profiles);
+          setStats({
+            users: profiles.length || 0,
+            receivables: Number(rCount) || 0
+          });
+        }
+      } catch (err) {
+        console.error("Admin dashboard data load failed:", err);
       }
     }
     loadData();

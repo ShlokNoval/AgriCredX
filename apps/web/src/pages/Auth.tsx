@@ -14,51 +14,45 @@ export default function Auth() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const [companyName, setCompanyName] = useState('');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     
     try {
+      let isRegistering = !isLogin;
+      let loginData, loginError;
+
       if (isLogin) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
+        const res = await supabase.auth.signInWithPassword({ email, password });
+        loginData = res.data;
+        loginError = res.error;
         
+        // Seamless Registration: if user doesn't exist during a demo, sign them up.
+        if (loginError && loginError.message.includes('Invalid login credentials')) {
+          isRegistering = true;
+          // We don't have companyName if they tried to login, but we'll try to sign them up anyway.
+        } else if (loginError) {
+          throw loginError;
+        }
+      }
+
+      if (isRegistering) {
+        const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         
-        // Force redirect to admin dashboard if using admin credentials
-        if (email.toLowerCase() === 'admin@demo.agricredx.com') {
-          navigate('/admin');
-          return;
+        if (companyName) {
+          // Save company name to local backend mapping for demo purposes
+          fetch('/api/set-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, companyName })
+          }).catch(e => console.error(e));
         }
 
-        // Check role after login for normal users
-        if (data.user) {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', data.user.id)
-            .single();
-            
-          const userRole = profileData?.role || role;
-          
-          if (userRole === 'admin') {
-            navigate('/admin');
-          } else {
-            navigate(`/${userRole}`);
-          }
-        }
-      } else {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password
-        });
-        if (error) throw error;
-        
         if (email.toLowerCase() === 'admin@demo.agricredx.com' && data.user) {
-          // Attempt to create profile for admin on-the-fly (might fail if RLS prevents it, but works in local dev usually)
           await supabase.from('profiles').insert({
             id: data.user.id,
             email: email,
@@ -69,8 +63,32 @@ export default function Auth() {
           return;
         }
 
-        alert("Registration successful! (In a real app, check email for verification). You can now login.");
-        setIsLogin(true);
+        // After sign up, sign them in automatically
+        const autoSignIn = await supabase.auth.signInWithPassword({ email, password });
+        if (autoSignIn.error) throw autoSignIn.error;
+        loginData = autoSignIn.data;
+      }
+
+      // Check role after successful login
+      if (loginData?.user) {
+        if (email.toLowerCase() === 'admin@demo.agricredx.com') {
+          navigate('/admin');
+          return;
+        }
+
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', loginData.user.id)
+          .single();
+          
+        const userRole = profileData?.role || role;
+        
+        if (userRole === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate(`/${userRole}`);
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed');
@@ -139,6 +157,22 @@ export default function Auth() {
                 />
               </div>
             </div>
+            
+            {!isLogin && (
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Company / Username</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    className={`appearance-none rounded-xl relative block w-full px-4 py-3 border border-slate-300 placeholder-slate-400 text-slate-900 focus:outline-none focus:ring-2 focus:ring-${getRoleColor()}-500 focus:border-${getRoleColor()}-500 focus:z-10 sm:text-sm transition-all`}
+                    placeholder={`e.g. Acme ${role === 'buyer' ? 'Foods' : 'Logistics'}`}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div>

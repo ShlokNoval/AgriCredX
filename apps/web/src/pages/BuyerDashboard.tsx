@@ -131,11 +131,19 @@ export default function BuyerDashboard() {
       let supplierOrg = 'Anonymous Supplier';
 
       try {
-        const { data: bData } = await supabase.from('profiles').select('organizations(name)').ilike('wallet_address', data.buyer).single();
-        if (bData?.organizations?.name) buyerOrg = bData.organizations.name;
+        const { data: bData } = await supabase.from('profiles').select('email').ilike('wallet_address', data.buyer).single();
+        if (bData?.email) {
+          const res = await fetch(`/api/get-profile?email=${encodeURIComponent(bData.email)}`);
+          const json = await res.json();
+          if (json.companyName) buyerOrg = json.companyName;
+        }
 
-        const { data: sData } = await supabase.from('profiles').select('organizations(name)').ilike('wallet_address', data.supplier).single();
-        if (sData?.organizations?.name) supplierOrg = sData.organizations.name;
+        const { data: sData } = await supabase.from('profiles').select('email').ilike('wallet_address', data.supplier).single();
+        if (sData?.email) {
+          const res = await fetch(`/api/get-profile?email=${encodeURIComponent(sData.email)}`);
+          const json = await res.json();
+          if (json.companyName) supplierOrg = json.companyName;
+        }
       } catch (e) { console.error('Failed org lookup', e); }
 
       setActiveReceivable({
