@@ -97,16 +97,34 @@ export default function Auth() {
     }
   };
 
-  const getRoleColor = () => {
-    if (role === 'buyer') return 'emerald';
-    return 'blue';
+  const getTheme = () => {
+    if (role === 'buyer') {
+      return {
+        bg: 'bg-emerald-600',
+        hoverBg: 'hover:bg-emerald-700',
+        ring: 'focus:ring-emerald-500',
+        border: 'focus:border-emerald-500',
+        lightBg: 'bg-emerald-100',
+        text: 'text-emerald-600'
+      };
+    }
+    return {
+      bg: 'bg-blue-600',
+      hoverBg: 'hover:bg-blue-700',
+      ring: 'focus:ring-blue-500',
+      border: 'focus:border-blue-500',
+      lightBg: 'bg-blue-100',
+      text: 'text-blue-600'
+    };
   };
+
+  const theme = getTheme();
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 animate-fade-in">
       <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-3xl shadow-xl border border-slate-100">
         <div>
-          <div className={`mx-auto h-16 w-16 bg-${getRoleColor()}-100 rounded-full flex items-center justify-center text-${getRoleColor()}-600 mb-6 shadow-sm`}>
+          <div className={`mx-auto h-16 w-16 ${theme.lightBg} rounded-full flex items-center justify-center ${theme.text} mb-6 shadow-sm`}>
             <Lock size={32} />
           </div>
           <h2 className="text-center text-3xl font-extrabold text-slate-900 capitalize tracking-tight">
@@ -136,7 +154,7 @@ export default function Auth() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className={`appearance-none rounded-xl relative block w-full px-4 py-3 pl-10 border border-slate-300 placeholder-slate-400 text-slate-900 focus:outline-none focus:ring-2 focus:ring-${getRoleColor()}-500 focus:border-${getRoleColor()}-500 focus:z-10 sm:text-sm transition-all`}
+                  className={`appearance-none rounded-xl relative block w-full px-4 py-3 pl-10 border border-slate-300 placeholder-slate-400 text-slate-900 focus:outline-none focus:ring-2 ${theme.ring} ${theme.border} focus:z-10 sm:text-sm transition-all`}
                   placeholder="admin@demo.agricredx.com"
                 />
               </div>
@@ -152,7 +170,7 @@ export default function Auth() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`appearance-none rounded-xl relative block w-full px-4 py-3 pl-10 border border-slate-300 placeholder-slate-400 text-slate-900 focus:outline-none focus:ring-2 focus:ring-${getRoleColor()}-500 focus:border-${getRoleColor()}-500 focus:z-10 sm:text-sm transition-all`}
+                  className={`appearance-none rounded-xl relative block w-full px-4 py-3 pl-10 border border-slate-300 placeholder-slate-400 text-slate-900 focus:outline-none focus:ring-2 ${theme.ring} ${theme.border} focus:z-10 sm:text-sm transition-all`}
                   placeholder="••••••••"
                 />
               </div>
@@ -167,7 +185,7 @@ export default function Auth() {
                     required
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
-                    className={`appearance-none rounded-xl relative block w-full px-4 py-3 border border-slate-300 placeholder-slate-400 text-slate-900 focus:outline-none focus:ring-2 focus:ring-${getRoleColor()}-500 focus:border-${getRoleColor()}-500 focus:z-10 sm:text-sm transition-all`}
+                    className={`appearance-none rounded-xl relative block w-full px-4 py-3 border border-slate-300 placeholder-slate-400 text-slate-900 focus:outline-none focus:ring-2 ${theme.ring} ${theme.border} focus:z-10 sm:text-sm transition-all`}
                     placeholder={`e.g. Acme ${role === 'buyer' ? 'Foods' : 'Logistics'}`}
                   />
                 </div>
@@ -179,7 +197,7 @@ export default function Auth() {
             <button
               type="submit"
               disabled={loading}
-              className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl text-white bg-${getRoleColor()}-600 hover:bg-${getRoleColor()}-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-${getRoleColor()}-500 transition-all shadow-md hover:shadow-lg disabled:opacity-50`}
+              className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl text-white ${theme.bg} ${theme.hoverBg} focus:outline-none focus:ring-2 focus:ring-offset-2 ${theme.ring} transition-all shadow-md hover:shadow-lg disabled:opacity-50`}
             >
               {loading ? 'Processing...' : isLogin ? 'Sign In' : 'Register'}
             </button>
@@ -188,8 +206,9 @@ export default function Auth() {
         
         <div className="text-center mt-4">
           <button 
+            type="button"
             onClick={() => setIsLogin(!isLogin)}
-            className={`text-sm font-medium text-${getRoleColor()}-600 hover:text-${getRoleColor()}-500`}
+            className={`text-sm font-medium ${theme.text} hover:opacity-80 transition-opacity`}
           >
             {isLogin ? "Don't have an account? Register here" : "Already have an account? Sign in"}
           </button>

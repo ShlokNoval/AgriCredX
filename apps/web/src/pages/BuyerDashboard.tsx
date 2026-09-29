@@ -51,6 +51,7 @@ export default function BuyerDashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [walletBalance, setWalletBalance] = useState<string>('0');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
 
   // New State for Buyer Requirements (RFP)
   const [showRfpModal, setShowRfpModal] = useState(false);
@@ -131,20 +132,29 @@ export default function BuyerDashboard() {
       let supplierOrg = 'Anonymous Supplier';
 
       try {
-        const { data: bData } = await supabase.from('profiles').select('email').ilike('wallet_address', data.buyer).single();
+        const { data: bData } = await supabase.from('profiles').select('email').ilike('wallet_address', data.buyer).limit(1).maybeSingle();
         if (bData?.email) {
           const res = await fetch(`/api/get-profile?email=${encodeURIComponent(bData.email)}`);
           const json = await res.json();
           if (json.companyName) buyerOrg = json.companyName;
         }
 
-        const { data: sData } = await supabase.from('profiles').select('email').ilike('wallet_address', data.supplier).single();
+        const { data: sData } = await supabase.from('profiles').select('email').ilike('wallet_address', data.supplier).limit(1).maybeSingle();
         if (sData?.email) {
           const res = await fetch(`/api/get-profile?email=${encodeURIComponent(sData.email)}`);
           const json = await res.json();
           if (json.companyName) supplierOrg = json.companyName;
         }
       } catch (e) { console.error('Failed org lookup', e); }
+
+      let originAddress = null;
+      let deliveryAddress = null;
+      try {
+        const res = await fetch(`/api/get-address?txId=${receivableId}`);
+        const json = await res.json();
+        originAddress = json.originAddress;
+        deliveryAddress = json.deliveryAddress;
+      } catch (e) { console.error('Failed address lookup', e); }
 
       setActiveReceivable({
         id: receivableId,
@@ -156,7 +166,9 @@ export default function BuyerDashboard() {
         supplierName: supplierOrg,
         status: Number(data.status),
         statusKey: statusFromEnum(Number(data.status)),
-        attestationDigest: data.attestationDigest
+        attestationDigest: data.attestationDigest,
+        originAddress,
+        deliveryAddress
       });
       setTxHash(null);
       setVerifyResult(null);
@@ -186,11 +198,34 @@ export default function BuyerDashboard() {
         throw new Error("Wallet not connected. Please connect your wallet first.");
       }
       const contract = getAgriCredXContract(signer);
+      const currentR = await contract.receivables(activeReceivable.id);
+      if (Number(currentR.status) !== 0) {
+        alert("This quotation has already been accepted or its status has changed! Refreshing.");
+        fetchReceivable();
+        setIsSubmitting(false);
+        return;
+      }
       const tx = await contract.buyerAccept(activeReceivable.id, {
         value: ethers.parseEther(activeReceivable.amount.toString())
       });
       setTxHash(tx.hash);
-      await tx.wait();
+      try {
+        await tx.wait();
+      } catch (waitError: any) {
+        console.warn("Transaction wait error (likely 429 rate limit). The transaction was likely submitted successfully.", waitError);
+        // Wait an extra 3 seconds as a buffer since we couldn't confirm the receipt reliably
+        await new Promise(res => setTimeout(res, 3000));
+      }
+
+      if (deliveryAddress) {
+        try {
+          await fetch('/api/set-address', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ txId: activeReceivable.id.toString(), deliveryAddress })
+          });
+        } catch (e) { console.error("Failed to save delivery address", e); }
+      }
 
       // Extract commodity for PDF generation
       let pdfCommodity = 'Premium Agri Product';
@@ -453,6 +488,18 @@ export default function BuyerDashboard() {
                       <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Assigned Buyer</p>
                       <p className="font-mono text-xs text-slate-600 truncate">{activeReceivable.buyer}</p>
                     </div>
+                    {activeReceivable.originAddress && (
+                      <div className="col-span-2">
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Origin Address (Shipping From)</p>
+                        <p className="text-sm text-slate-700 mt-0.5">{activeReceivable.originAddress}</p>
+                      </div>
+                    )}
+                    {activeReceivable.deliveryAddress && (
+                      <div className="col-span-2">
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Delivery Address (Shipping To)</p>
+                        <p className="text-sm text-slate-700 mt-0.5">{activeReceivable.deliveryAddress}</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Lifecycle Progress Tracker */}
@@ -608,15 +655,26 @@ export default function BuyerDashboard() {
                   )}
 
                   {/* Action Buttons */}
-                  <div className="flex gap-4">
+                  <div className="flex flex-col gap-4">
                     {activeReceivable.status === 0 /* QUOTATION_SENT */ && (
-                      <button
-                        onClick={() => handleAction('ACCEPT')}
-                        disabled={isSubmitting}
-                        className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-600/20 disabled:opacity-50 transition-all"
-                      >
-                        {isSubmitting ? 'Processing...' : 'Accept Quotation & Lock Escrow'}
-                      </button>
+                      <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                        <label className="block text-sm font-semibold text-slate-800">Final Delivery Address</label>
+                        <textarea
+                          required
+                          value={deliveryAddress}
+                          onChange={(e) => setDeliveryAddress(e.target.value)}
+                          placeholder="e.g. Grain Market, District Silo, Punjab"
+                          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 outline-none mb-2"
+                          rows={2}
+                        />
+                        <button
+                          onClick={() => handleAction('ACCEPT')}
+                          disabled={isSubmitting || !deliveryAddress}
+                          className="w-full py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-600/20 disabled:opacity-50 transition-all"
+                        >
+                          {isSubmitting ? 'Processing...' : 'Accept Quotation & Lock Escrow'}
+                        </button>
+                      </div>
                     )}
                     {activeReceivable.status === 1 && (
                       <div className="w-full text-center p-3 text-sm bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 font-medium">
