@@ -1,6 +1,6 @@
 # AgriCredX 🌾
 
-**On-chain Trade Finance & Supply Chain Platform — MST Buildathon 2026**  
+**Decentralized Trade Finance for Agricultural Supply Chains**  
 **Team InnoVision**
 
 ---
